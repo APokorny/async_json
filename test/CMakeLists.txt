@@ -1,0 +1,2 @@
+add_executable(json_parse_test json_parse_test.cpp)
+target_link_libraries(json_parse_test async_json)
