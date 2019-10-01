@@ -1,4 +1,11 @@
-#pragma once
+/* ==========================================================================
+ Copyright (c) 2019 Andreas Pokorny
+ Distributed under the Boost Software License, Version 1.0. (See accompanying
+ file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+========================================================================== */
+
+#ifndef ASYNC_JSON_BASIC_JSON_PARSER_HPP_INCLUDED
+#define ASYNC_JSON_BASIC_JSON_PARSER_HPP_INCLUDED
 #include <cmath>
 #include <hsm/hsm.hpp>
 namespace async_json
@@ -332,3 +339,4 @@ struct basic_json_parser
     }
 };
 }  // namespace async_json
+#endif
