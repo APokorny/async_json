@@ -9,4 +9,4 @@ Boost Software License.
 ## Dependencies
 
 * optional C++ std features like string_view
-* hsm: github.com/APokorny/hsm
+* hsm: github.com/APokorny/hsm (so transitively kvasir mpl and github.com/APokorny/tiny_tuple)
