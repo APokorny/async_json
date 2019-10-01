@@ -74,13 +74,23 @@ constexpr const char* error_str(a::error_cause cause)
 struct test_handler
 {
     std::vector<call> calls;
+    using traits    = async_json::default_traits;
+    using float_t   = traits::float_t;
+    using integer_t = traits::integer_t;
+    using sv_t      = traits::sv_t;
 
     void value(bool a) { calls.push_back(call{call_type::boolean, ptrdiff_t(a)}); }
-    void value(double n) { calls.push_back(call{call_type::double_value, 0, "", n}); }
-    void value(long long int n) { calls.push_back(call{call_type::integer_value, n}); }
-    void value(std::string const& a) { calls.push_back(call{call_type::string_value, 0, a}); }
+    void value(float_t n) { calls.push_back(call{call_type::double_value, 0, "", n}); }
+    void value(integer_t n) { calls.push_back(call{call_type::integer_value, n}); }
+    void value(sv_t const& a) { calls.push_back(call{call_type::string_value, 0, std::string(a.begin(), a.end())}); }
+    void string_value_start(sv_t const& a) { calls.push_back(call{call_type::string_value, 0, std::string(a.begin(), a.end())}); }
+    void string_value_cont(sv_t const& a) { calls.back().buf += std::string(a.begin(), a.end()); }
+    void string_value_end() {}
     void value(void* ptr) { calls.push_back(call{call_type::obj_ref, ptrdiff_t(ptr)}); }
-    void named_object(std::string const& name) { calls.push_back(call{call_type::named_object, 0, name}); }
+    void named_object(sv_t const& name) { calls.push_back(call{call_type::named_object, 0, std::string(name.begin(), name.end())}); }
+    void named_object_start(sv_t const& name) { calls.push_back(call{call_type::named_object, 0, std::string(name.begin(), name.end())}); }
+    void named_object_cont(sv_t const& name) { calls.back().buf += std::string(name.begin(), name.end()); }
+    void named_object_end() {}
     void object_start() { calls.push_back(call{call_type::object_start}); }
     void object_end() { calls.push_back(call{call_type::object_end}); }
     void array_start() { calls.push_back(call{call_type::array_start}); }

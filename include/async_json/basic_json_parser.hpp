@@ -29,6 +29,7 @@ constexpr hsm::event<struct ws>              whitespace;
 constexpr hsm::event<struct t_char>          t;
 constexpr hsm::event<struct f_char>          f;
 constexpr hsm::event<struct n_char>          n;
+constexpr hsm::event<struct end_of_input>    eoi;
 }  // namespace detail
 
 enum error_cause
@@ -83,9 +84,9 @@ struct basic_json_parser
     using float_t   = Traits::float_t;
     using integer_t = Traits::integer_t;
     using sv_t      = Traits::sv_t;
-    Handler cbs;
 
-    Handler* callback_handler() { return &cbs; }
+   private:
+    Handler cbs;
 
     size_t byte_count{0};
     char   cur{0};
@@ -97,16 +98,17 @@ struct basic_json_parser
         uint8_t     pos{0};
     };
     keyword_receive kw_state;
-    std::string     parsed_string;
+    sv_t            parsed_view;
+    sv_t            current_input_buffer;
 
-    int                       num_sign{1};
-    int                       exp_sign{1};
-    int                       frac_digits{0};
-    unsigned long long        exp_number{0};
-    unsigned long long        int_number{0};
-    unsigned long long        fraction{0};
-    std::vector<uint8_t>      state_stack;
-    std::function<bool(char)> parse_byte;
+    int                              num_sign{1};
+    int                              exp_sign{1};
+    int                              frac_digits{0};
+    unsigned long long               exp_number{0};
+    unsigned long long               int_number{0};
+    unsigned long long               fraction{0};
+    std::vector<uint8_t>             state_stack;
+    std::function<bool(sv_t const&)> process_events;
 
     void setup_sm()
     {
@@ -130,13 +132,13 @@ struct basic_json_parser
         auto add_digit   = [this](auto& num) { return [&num, this]() { num = num * 10 + (cur - '0'); }; };
         auto add_digit_c = [this](auto& num, auto& count) { return [&num, &count, this]() { ++count, num = num * 10 + (cur - '0'); }; };
         auto get_number  = [this]() {
-            auto ret   = num_sign * static_cast<long long>(int_number);
+            auto ret   = num_sign * static_cast<integer_t>(int_number);
             int_number = 0;
             num_sign   = 1;
             return ret;
         };
         auto get_fraction = [get_number, this]() {
-            auto ret    = num_sign * (static_cast<long long>(int_number) + static_cast<double>(fraction) / std::pow(10, frac_digits));
+            auto ret    = num_sign * (static_cast<integer_t>(int_number) + static_cast<float_t>(fraction) / std::pow(10, frac_digits));
             int_number  = 0;
             num_sign    = 1;
             fraction    = 0;
@@ -144,7 +146,7 @@ struct basic_json_parser
             return ret;
         };
         auto get_fraction_we = [get_fraction, this]() {
-            auto ret   = get_fraction() * std::pow(10, exp_sign * static_cast<long long>(exp_number));
+            auto ret   = get_fraction() * std::pow(10, exp_sign * static_cast<integer_t>(exp_number));
             exp_number = 0;
             exp_sign   = 1;
             return ret;
@@ -169,28 +171,58 @@ struct basic_json_parser
             cb->array_end();
             state_stack.pop_back();
         };
-        auto emit_object_name = [cb, this]() {
-            cb->named_object(parsed_string);
-            parsed_string.clear();
+        auto emit_name_first = [cb, this]() {
+            cb->named_object_start(parsed_view);
+            parsed_view = sv_t(nullptr, 0);
         };
 
-        // TODO there could be nicer ways of exposing the string value.
-        auto emit_str_value = [cb, this]() {
-            cb->value(parsed_string);
-            parsed_string.clear();
+        auto emit_name_first_last = [cb, this]() {
+            cb->named_object(parsed_view);
+            parsed_view = sv_t(nullptr, 0);
         };
+
+        auto emit_name_n = [cb, this]() {
+            if (parsed_view.size()) cb->named_object_cont(parsed_view);
+            parsed_view = sv_t(nullptr, 0);
+        };
+
+        auto emit_name_n_last = [cb, emit_name_n, this]() {
+            emit_name_n();
+            cb->named_object_end();
+        };
+
+        auto emit_str_first = [cb, this]() {
+            cb->string_value_start(parsed_view);
+            parsed_view = sv_t(nullptr, 0);
+        };
+
+        auto emit_str_first_last = [cb, emit_str_first, this]() {
+            cb->value(parsed_view);
+            parsed_view = sv_t(nullptr, 0);
+        };
+
+        auto emit_str_n = [cb, this]() {
+            if (parsed_view.size()) cb->string_value_cont(parsed_view);
+            parsed_view = sv_t(nullptr, 0);
+        };
+
+        auto emit_str_n_last = [cb, emit_str_n, this]() {
+            emit_str_n();
+            cb->string_value_end();
+        };
+
         auto error_action       = [this, cb](error_cause reason) { return [reason, cb]() { cb->error(reason); }; };
         auto stack_empty        = [this]() { return state_stack.size() == 0; };
         auto no_object_on_stack = [this]() { return state_stack.size() == 0 || state_stack.back() != 0; };
         auto object_on_stack    = [this]() { return state_stack.size() && state_stack.back() == 0; };
         auto no_array_on_stack  = [this]() { return state_stack.size() == 0 || state_stack.back() != 1; };
         auto array_on_stack     = [this]() { return state_stack.size() && state_stack.back() == 1; };
-        auto mem_add_ch         = [this]() { parsed_string += cur; };
+        auto mem_start_str      = [this]() { parsed_view = sv_t(current_input_buffer.begin(), 1); };
+        auto mem_add_ch         = [this]() { parsed_view = sv_t(parsed_view.begin(), parsed_view.size() + 1); };
 
         using namespace async_json::detail;
         auto sm = hsm::create_state_machine(  //
-            quot, ch, colon,                  //
-            digit, exponent, dot,             //
+            ch,                               // catch all event
             "done"_state,
             "error"_state,                                                      //
             hsm::initial = "json"_state,                                        //
@@ -204,6 +236,7 @@ struct basic_json_parser
                 quot                                          = "consume_string"_state,    //
                 digit / add_digit(int_number)                 = "int_number"_state,        //
                 minus / negate(num_sign)                      = "int_number_ws"_state,     //
+                eoi                                           = hsm::internal,             //
                 hsm::any / error_action(unexpected_character) = "error"_state              //
                 ),                                                                         //
             "int_number"_state(                                                            //
@@ -217,6 +250,7 @@ struct basic_json_parser
                 br_close / emit_number                  = "array_object_br_close"_state,   //
                 idx_close / emit_number                 = "array_object_idx_close"_state,  //
                 whitespace / emit_number                = "array_object"_state,            //
+                eoi                                     = hsm::internal,                   //
                 hsm::any / error_action(invalid_number) = "error"_state                    //
                 ),
             "fraction_number"_state(                                                          //
@@ -226,6 +260,7 @@ struct basic_json_parser
                 br_close / emit_fraction                   = "array_object_br_close"_state,   //
                 idx_close / emit_fraction                  = "array_object_idx_close"_state,  //
                 whitespace / emit_fraction                 = "array_object"_state,            //
+                eoi                                        = hsm::internal,                   //
                 hsm::any / error_action(invalid_number)    = "error"_state                    //
                 ),
             "exponent"_state(                                                    //
@@ -234,17 +269,27 @@ struct basic_json_parser
                     minus / negate(exp_sign)                = "exponent"_state,  //
                     plus / negate(exp_sign)                 = "exponent"_state,  //
                     digit / add_digit(exp_number)           = "exponent"_state,  //
+                    eoi                                     = hsm::internal,     //
                     hsm::any / error_action(invalid_number) = "error"_state      //
                     ),
                 comma / emit_exp_fraction               = "array_object_comma"_state,      //
                 br_close / emit_exp_fraction            = "array_object_br_close"_state,   //
                 idx_close / emit_exp_fraction           = "array_object_idx_close"_state,  //
                 whitespace / emit_exp_fraction          = "array_object"_state,            //
+                eoi                                     = hsm::internal,                   //
                 hsm::any / error_action(invalid_number) = "error"_state                    //
                 ),
-            "consume_string"_state(                            //
-                quot / emit_str_value = "array_object"_state,  //
-                hsm::any / mem_add_ch = "consume_string"_state),
+            "consume_string"_state(  //
+                hsm::any / mem_start_str = "consume_string_first"_state,
+                "consume_string_ch"_state(                                  //
+                    hsm::any / mem_add_ch = hsm::internal,                  //
+                    "consume_string_first"_state(                           //
+                        quot / emit_str_first_last = "array_object"_state,  //
+                        eoi / emit_str_first       = "consume_string_n"_state),   //
+                    "consume_string_n"_state(                               //
+                        quot / emit_str_n_last = "array_object"_state,      //
+                        eoi / emit_str_n       = hsm::internal))                  //
+                ),
             "member"_state(                                                         //
                 hsm::initial = "expect_quot"_state,                                 //
                 "expect_quot"_state(                                                //
@@ -252,16 +297,26 @@ struct basic_json_parser
                     quot                                   = "expect_name"_state,   //
                     br_close[object_on_stack] / pop_object = "array_object"_state,  //
                     hsm::any / error_action(member_exp)    = "error"_state),
-                "expect_name"_state(                               //
-                    quot                  = "expect_colon"_state,  //
-                    hsm::any / mem_add_ch = "expect_name"_state)   //
+                "expect_name"_state(  //
+                    hsm::any / mem_start_str = "expect_name_first"_state,
+                    "expect_name_ch"_state(                                      //
+                        hsm::any / mem_add_ch = hsm::internal,                   //
+                        "expect_name_first"_state(                               //
+                            quot / emit_name_first_last = "expect_colon"_state,  //
+                            eoi / emit_name_first       = "expect_name_n"_state),      //
+                        "expect_name_n"_state(                                   //
+                            quot / emit_name_n_last = "expect_colon"_state,      //
+                            eoi / emit_name_n       = hsm::internal))                  //
+                    )                                                            //
                 ),
             "expect_colon"_state(                                           //
                 whitespace                         = "expect_colon"_state,  //
-                colon / emit_object_name           = "json"_state,          //
+                colon                              = "json"_state,          //
+                eoi                                = hsm::internal,         //
                 hsm::any / error_action(colon_exp) = "error"_state),
 
-            "consume_kw"_state(  //
+            "consume_kw"_state(                                                                   //
+                eoi                                                             = hsm::internal,  //
                 hsm::any[kw_consume] / kw_consume_char                          = "consume_kw"_state,
                 hsm::any[kw_complete] / kw_complete_keyword                     = "array_object"_state,  //
                 hsm::any[kw_wrong_char] / error_action(wrong_keyword_character) = "error"_state          //
@@ -269,6 +324,7 @@ struct basic_json_parser
             "array_object"_state(                           //
                 hsm::initial[stack_empty] = "done"_state,   //
                 whitespace                = hsm::internal,  //
+                eoi                       = hsm::internal,  //
                 comma                     = "array_object_comma"_state,
                 "array_object_comma"_state(                          //
                     hsm::initial[object_on_stack] = "member"_state,  //
@@ -285,58 +341,64 @@ struct basic_json_parser
                 hsm::any / error_action(comma_expected) = "error"_state  //
                 ));
         sm.start();
-        auto process_event = [this, sm = std::move(sm)](char c) mutable {
-            cur = c;
-            // TODO - validate utf8 characters
-            //  std::cout << "Current State: " << int(sm.current_state) << " " << c << " " << int(c) << "\n";
-            switch (c)
-            {
-                case 'n': return sm.process_event(n);
-                case 't': return sm.process_event(t);
-                case 'f': return sm.process_event(f);
-                case '{': return sm.process_event(br_open);
-                case '}': return sm.process_event(br_close);
-                case '[': return sm.process_event(idx_open);
-                case ']': return sm.process_event(idx_close);
-                case '"': return sm.process_event(quot);
-                case ':': return sm.process_event(colon);
-                case ',': return sm.process_event(comma);
-                case '+': return sm.process_event(plus);
-                case '-': return sm.process_event(minus);
-                case '0': /* fall-through */
-                case '1':
-                case '2':
-                case '3':
-                case '4':
-                case '5':
-                case '6':
-                case '7':
-                case '8':
-                case '9': return sm.process_event(digit);
-                case 'E':
-                case 'e': return sm.process_event(exponent);
-                case '.': return sm.process_event(dot);
-                case ' ':
-                case '\t':
-                case '\r':
-                case '\n': return sm.process_event(whitespace);
-                default: return sm.process_event(ch);
+        process_events = [this, sm = std::move(sm)](sv_t const& bytes) mutable {
+            current_input_buffer = bytes;
+            auto switch_char     = [&sm](auto c) {
+                switch (c)
+                {
+                    case 'n': return sm.process_event(n);
+                    case 't': return sm.process_event(t);
+                    case 'f': return sm.process_event(f);
+                    case '{': return sm.process_event(br_open);
+                    case '}': return sm.process_event(br_close);
+                    case '[': return sm.process_event(idx_open);
+                    case ']': return sm.process_event(idx_close);
+                    case '"': return sm.process_event(quot);
+                    case ':': return sm.process_event(colon);
+                    case ',': return sm.process_event(comma);
+                    case '+': return sm.process_event(plus);
+                    case '-': return sm.process_event(minus);
+                    case '0': /* fall-through */
+                    case '1':
+                    case '2':
+                    case '3':
+                    case '4':
+                    case '5':
+                    case '6':
+                    case '7':
+                    case '8':
+                    case '9': return sm.process_event(digit);
+                    case 'E':
+                    case 'e': return sm.process_event(exponent);
+                    case '.': return sm.process_event(dot);
+                    case ' ':
+                    case '\t':
+                    case '\r':
+                    case '\n': return sm.process_event(whitespace);
+                    default: return sm.process_event(ch);
+                }
             };
-        };
-        parse_byte = [this, process_event = std::move(process_event)](char c) mutable {
-            auto ret = process_event(c);
-            if (ret) ++byte_count;
-            return ret;
+            for (auto elem : bytes)
+            {
+                cur = elem;
+                // TODO - validate utf8 characters
+                //  std::cout << "Current State: " << int(sm.current_state) << " " << c << " " << int(c) << "\n";
+                switch_char(cur);
+                if (sm.current_state_id() == sm.get_state_id("error"_state)) return false;
+                ++byte_count;
+                current_input_buffer = sv_t(current_input_buffer.begin() + 1, current_input_buffer.size() - 1);
+            }
+            sm.process_event(eoi);
+            return sm.current_state_id() != sm.get_state_id("error"_state);
         };
     }
 
+   public:
     explicit basic_json_parser(Handler&& handler) : cbs(std::move(handler)) { setup_sm(); }
     basic_json_parser() { setup_sm(); }
 
-    void parse_bytes(sv_t input)
-    {
-        for (char item : input) this->parse_byte(item);
-    }
+    Handler* callback_handler() { return &cbs; }
+    bool     parse_bytes(sv_t const& input) { return process_events(input); }
 };
 }  // namespace async_json
 #endif
