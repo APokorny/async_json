@@ -228,12 +228,12 @@ struct basic_json_parser
             hsm::initial = "json"_state,                                        //
             "json"_state(                                                       //
                 whitespace                                    = hsm::internal,  //
-                n / setup_kw("null")                          = "consume_kw"_state,
-                f / setup_kw("false")                         = "consume_kw"_state,        //
-                t / setup_kw("true")                          = "consume_kw"_state,        //
+                n / setup_kw("null")                          = "keyword"_state,
+                f / setup_kw("false")                         = "keyword"_state,           //
+                t / setup_kw("true")                          = "keyword"_state,           //
                 br_open / push_object                         = "member"_state,            //
                 idx_open / push_array                         = "json"_state,              //
-                quot                                          = "consume_string"_state,    //
+                quot                                          = "string_start"_state,      //
                 digit / add_digit(int_number)                 = "int_number"_state,        //
                 minus / negate(num_sign)                      = "int_number_ws"_state,     //
                 eoi                                           = hsm::internal,             //
@@ -279,35 +279,48 @@ struct basic_json_parser
                 eoi                                     = hsm::internal,                   //
                 hsm::any / error_action(invalid_number) = "error"_state                    //
                 ),
-            "consume_string"_state(  //
-                hsm::any / mem_start_str = "consume_string_first"_state,
-                "consume_string_ch"_state(                                  //
+            "string_start"_state(  //
+                hsm::any / mem_start_str = "string_start_cont"_state,
+                "string_start_ch"_state(                                    //
                     hsm::any / mem_add_ch = hsm::internal,                  //
-                    "consume_string_first"_state(                           //
+                    "string_start_cont"_state(                              //
                         quot / emit_str_first_last = "array_object"_state,  //
-                        eoi / emit_str_first       = "consume_string_n"_state),   //
-                    "consume_string_n"_state(                               //
-                        quot / emit_str_n_last = "array_object"_state,      //
-                        eoi / emit_str_n       = hsm::internal))                  //
+                        eoi / emit_str_first       = "string_n"_state)            //
+                    )),
+            "string_n"_state(                                     //
+                quot / emit_str_n_last   = "array_object"_state,  //
+                hsm::any / mem_start_str = "string_n_cont"_state,
+                "string_n_ch"_state(                                    //
+                    hsm::any / mem_add_ch = hsm::internal,              //
+                    "string_n_cont"_state(                              //
+                        quot / emit_str_n_last = "array_object"_state,  //
+                        eoi / emit_str_n       = "string_n"_state))           //
                 ),
             "member"_state(                                                         //
                 hsm::initial = "expect_quot"_state,                                 //
                 "expect_quot"_state(                                                //
                     whitespace                             = hsm::internal,         //
-                    quot                                   = "expect_name"_state,   //
+                    quot                                   = "name_start"_state,    //
                     br_close[object_on_stack] / pop_object = "array_object"_state,  //
                     hsm::any / error_action(member_exp)    = "error"_state),
-                "expect_name"_state(  //
-                    hsm::any / mem_start_str = "expect_name_first"_state,
-                    "expect_name_ch"_state(                                      //
+                "name_start"_state(  //
+                    hsm::any / mem_start_str = "name_start_cont"_state,
+                    "name_start_ch"_state(                                       //
                         hsm::any / mem_add_ch = hsm::internal,                   //
-                        "expect_name_first"_state(                               //
+                        "name_start_cont"_state(                                 //
                             quot / emit_name_first_last = "expect_colon"_state,  //
-                            eoi / emit_name_first       = "expect_name_n"_state),      //
-                        "expect_name_n"_state(                                   //
-                            quot / emit_name_n_last = "expect_colon"_state,      //
-                            eoi / emit_name_n       = hsm::internal))                  //
-                    )                                                            //
+                            eoi / emit_name_first       = "name_n"_state))),           //
+                "name_n"_state(                                                  //
+                    quot / emit_name_n_last  = "expect_colon"_state,             //
+                    hsm::any / mem_start_str = "name_n_cont"_state,
+                    "name_n_ch"_state(                                       //
+                        hsm::any / mem_add_ch = hsm::internal,               //
+                        "name_n_cont"_state(                                 //
+                            quot / emit_name_n_last = "expect_colon"_state,  //
+                            eoi / emit_name_n       = "name_n"_state         //
+                            )                                                //
+                        )                                                    //
+                    )                                                        //
                 ),
             "expect_colon"_state(                                           //
                 whitespace                         = "expect_colon"_state,  //
@@ -315,9 +328,9 @@ struct basic_json_parser
                 eoi                                = hsm::internal,         //
                 hsm::any / error_action(colon_exp) = "error"_state),
 
-            "consume_kw"_state(                                                                   //
+            "keyword"_state(                                                                      //
                 eoi                                                             = hsm::internal,  //
-                hsm::any[kw_consume] / kw_consume_char                          = "consume_kw"_state,
+                hsm::any[kw_consume] / kw_consume_char                          = "keyword"_state,
                 hsm::any[kw_complete] / kw_complete_keyword                     = "array_object"_state,  //
                 hsm::any[kw_wrong_char] / error_action(wrong_keyword_character) = "error"_state          //
                 ),
@@ -382,7 +395,6 @@ struct basic_json_parser
             {
                 cur = elem;
                 // TODO - validate utf8 characters
-                //  std::cout << "Current State: " << int(sm.current_state) << " " << c << " " << int(c) << "\n";
                 switch_char(cur);
                 if (sm.current_state_id() == sm.get_state_id("error"_state)) return false;
                 ++byte_count;

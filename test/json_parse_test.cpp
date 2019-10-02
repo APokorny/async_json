@@ -288,3 +288,58 @@ TEST_CASE("Array : doubles")
                                                                                         {call_type::array_end}}));
 }
 
+TEST_CASE("partial input on text value")
+{
+    using namespace std::literals;
+    a::basic_json_parser<test_handler> p;
+    p.parse_bytes(R"( { "blubber": "long te)"sv);
+    p.parse_bytes(R"(xt string"}  )"sv);
+    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::object_start},
+                                                                                        {call_type::named_object, 0, "blubber"},
+                                                                                        {call_type::string_value, 0, "long text string"},
+                                                                                        {call_type::object_end}}));
+}
+
+TEST_CASE("partial input on text value 2")
+{
+    using namespace std::literals;
+    a::basic_json_parser<test_handler> p;
+    p.parse_bytes(R"( { "blubber": "long text string)"sv);
+    p.parse_bytes(R"("}  )"sv);
+    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::object_start},
+                                                                                        {call_type::named_object, 0, "blubber"},
+                                                                                        {call_type::string_value, 0, "long text string"},
+                                                                                        {call_type::object_end}}));
+}
+
+
+TEST_CASE("partial input on text value 3")
+{
+    using namespace std::literals;
+    a::basic_json_parser<test_handler> p;
+    p.parse_bytes(R"( { "blubber": "long)"sv);
+    p.parse_bytes(R"( text)"sv);
+    p.parse_bytes(R"( string)"sv);
+    p.parse_bytes(R"("  })"sv);
+    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::object_start},
+                                                                                        {call_type::named_object, 0, "blubber"},
+                                                                                        {call_type::string_value, 0, "long text string"},
+                                                                                        {call_type::object_end}}));
+}
+
+TEST_CASE("partial input on object name")
+{
+    using namespace std::literals;
+    a::basic_json_parser<test_handler> p;
+    p.parse_bytes(R"( { "you )"sv);
+    p.parse_bytes(R"(should not)"sv);
+    p.parse_bytes(R"( create overlong object names -)"sv);
+    p.parse_bytes(R"( but even if you do it will )"sv);
+    p.parse_bytes(R"(work": 12  })"sv);
+    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::object_start},
+                                                                                        {call_type::named_object, 0, "you should not create overlong object names - but even if you do it will work"},
+                                                                                        {call_type::integer_value, 12},
+                                                                                        {call_type::object_end}}));
+}
+
+
