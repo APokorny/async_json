@@ -9,10 +9,11 @@ Boost Software License.
 ## Dependencies
 
 * optional C++ std features like string_view
-* hsm: github.com/APokorny/hsm (so transitively kvasir mpl and github.com/APokorny/tiny_tuple)
+* hsm: https://github.com/APokorny/hsm (so transitively kvasir mpl and https://github.com/APokorny/tiny_tuple)
 
-* Example setup: 
-'''
+* Example setup:
+
+```CMake
 project(async_json_env LANGUAGES CXX)
 cmake_minimum_required(VERSION 3.10)
 cmake_policy(SET CMP0057 NEW)
@@ -30,4 +31,4 @@ add_subdirectory(mpl)
 add_subdirectory(tiny-tuple)
 add_subdirectory(hsm)
 add_subdirectory(async_json)
-'''
+```
