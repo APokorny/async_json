@@ -8,6 +8,45 @@
 #define ASYNC_JSON_BASIC_JSON_PARSER_HPP_INCLUDED
 #include <cmath>
 #include <hsm/hsm.hpp>
+
+// get string view:
+#if defined(__clang__)
+
+#if __cplusplus >= 201500L
+#include <string_view>
+#else
+#include <experimental/string_view>
+namespace std
+{
+using string_view = experimental::basic_string_view<char>;
+}
+#endif
+
+#elif defined(__GNUC__)
+
+#if __cplusplus >= 201500L
+
+#include <string_view>
+
+#elif (__GNUC__ == 4 && __GNUC_MINOR >= 9) || (__GNUC__ >= 5)
+
+#include <experimental/string_view>
+namespace std
+{
+using string_view = experimental::basic_string_view<char>;
+}
+#else
+
+#error "please use a newer compiler that contains string_view"
+// namespace std
+#endif
+
+#else
+
+#include <string_view>
+
+#endif
+
 namespace async_json
 {
 namespace detail
@@ -55,15 +94,14 @@ struct default_traits
 template <typename Traits>
 struct default_handler
 {
-    using sv_t      = Traits::sv_t;
-    using integer_t = Traits::integer_t;
-    using float_t   = Traits::float_t;
-    void value(bool a) {}
-    void value(void* ptr) {}
-    void value(typename Traits::integer_t ptr) {}
+    using sv_t      = typename Traits::sv_t;
+    using integer_t = typename Traits::integer_t;
+    using float_t   = typename Traits::float_t;
+    void value(bool) {}
+    void value(void*) {}
+    void value(integer_t) {}
+    void value(float_t) {}
     void value(sv_t const&) {}
-    void value(integer_t const&) {}
-    void value(float_t const&) {}
     void string_value_start(sv_t const&) {}
     void string_value_cont(sv_t const&) {}
     void string_value_end() {}
@@ -75,15 +113,15 @@ struct default_handler
     void object_end() {}
     void array_start() {}
     void array_end() {}
-    void error(error_cause err) {}
+    void error(error_cause) {}
 };
 
 template <typename Handler = default_handler<default_traits>, typename Traits = default_traits>
 struct basic_json_parser
 {
-    using float_t   = Traits::float_t;
-    using integer_t = Traits::integer_t;
-    using sv_t      = Traits::sv_t;
+    using float_t   = typename Traits::float_t;
+    using integer_t = typename Traits::integer_t;
+    using sv_t      = typename Traits::sv_t;
 
    private:
     Handler cbs;

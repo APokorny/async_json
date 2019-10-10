@@ -1,2 +1,6 @@
 add_executable(json_parse_test json_parse_test.cpp)
 target_link_libraries(json_parse_test async_json)
+add_executable(sax_event_mapper_test sax_event_mapper_test.cpp)
+target_link_libraries(sax_event_mapper_test async_json)
+add_executable(json_extractor_test json_extractor_test.cpp)
+target_link_libraries(json_extractor_test async_json)
