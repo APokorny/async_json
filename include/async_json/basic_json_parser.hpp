@@ -24,7 +24,7 @@ using string_view = experimental::basic_string_view<char>;
 
 #elif defined(__GNUC__)
 
-#if __cplusplus >= 201500L
+#if __cplusplus >= 201703L
 
 #include <string_view>
 
@@ -158,15 +158,15 @@ struct basic_json_parser
         auto  kw_wrong_char       = [this]() { return cur != kw_state.kw[kw_state.pos]; };
         auto  kw_consume_char     = [this]() { ++kw_state.pos; };
         auto  kw_complete_keyword = [cb, this]() {
-            if (kw_state.kw == "null")
+            if (kw_state.kw == sv_t{"null"})
                 cb->value(nullptr);
-            else if (kw_state.kw == "true")
+            else if (kw_state.kw == sv_t{"true"})
                 cb->value(true);
             else
                 cb->value(false);
         };
 
-        auto negate      = [this](auto& sign) { return [&sign]() { sign = -1; }; };
+        auto negate      = [](auto& sign) { return [&sign]() { sign = -1; }; };
         auto add_digit   = [this](auto& num) { return [&num, this]() { num = num * 10 + (cur - '0'); }; };
         auto add_digit_c = [this](auto& num, auto& count) { return [&num, &count, this]() { ++count, num = num * 10 + (cur - '0'); }; };
         auto get_number  = [this]() {
@@ -175,7 +175,7 @@ struct basic_json_parser
             num_sign   = 1;
             return ret;
         };
-        auto get_fraction = [get_number, this]() {
+        auto get_fraction = [this]() {
             auto ret    = num_sign * (static_cast<integer_t>(int_number) + static_cast<float_t>(fraction) / std::pow(10, frac_digits));
             int_number  = 0;
             num_sign    = 1;
@@ -190,9 +190,9 @@ struct basic_json_parser
             return ret;
         };
 
-        auto emit_number       = [cb, get_number, this]() { cb->value(get_number()); };
-        auto emit_fraction     = [cb, get_fraction, this]() { cb->value(get_fraction()); };
-        auto emit_exp_fraction = [cb, get_fraction_we, this]() { cb->value(get_fraction_we()); };
+        auto emit_number       = [cb, get_number]() { cb->value(get_number()); };
+        auto emit_fraction     = [cb, get_fraction]() { cb->value(get_fraction()); };
+        auto emit_exp_fraction = [cb, get_fraction_we]() { cb->value(get_fraction_we()); };
         auto push_object       = [cb, this]() {
             cb->object_start();
             state_stack.push_back(0);
@@ -224,7 +224,7 @@ struct basic_json_parser
             parsed_view = sv_t(nullptr, 0);
         };
 
-        auto emit_name_n_last = [cb, emit_name_n, this]() {
+        auto emit_name_n_last = [cb, emit_name_n]() {
             emit_name_n();
             cb->named_object_end();
         };
@@ -234,7 +234,7 @@ struct basic_json_parser
             parsed_view = sv_t(nullptr, 0);
         };
 
-        auto emit_str_first_last = [cb, emit_str_first, this]() {
+        auto emit_str_first_last = [cb, this]() {
             cb->value(parsed_view);
             parsed_view = sv_t(nullptr, 0);
         };
@@ -244,12 +244,12 @@ struct basic_json_parser
             parsed_view = sv_t(nullptr, 0);
         };
 
-        auto emit_str_n_last = [cb, emit_str_n, this]() {
+        auto emit_str_n_last = [cb, emit_str_n]() {
             emit_str_n();
             cb->string_value_end();
         };
 
-        auto error_action       = [this, cb](error_cause reason) { return [reason, cb]() { cb->error(reason); }; };
+        auto error_action       = [cb](error_cause reason) { return [reason, cb]() { cb->error(reason); }; };
         auto stack_empty        = [this]() { return state_stack.size() == 0; };
         auto no_object_on_stack = [this]() { return state_stack.size() == 0 || state_stack.back() != 0; };
         auto object_on_stack    = [this]() { return state_stack.size() && state_stack.back() == 0; };

@@ -27,7 +27,7 @@ struct path : async_json::default_handler<Traits>
     size_t                          element{0};
     size_t                          pos{0};
     T                               destination;
-    path(T&& dest, Ts&&... ts) : destination{dest}, path_elements{{ts...}} {}
+    path(T&& dest, Ts&&... ts) : path_elements{{ts...}}, destination{dest} {}
     template <typename VT>
     void value(VT const& v)
     {
@@ -116,16 +116,16 @@ struct value_handler : default_handler<Traits>
     bool astart{false};
     value_handler(T& dest, EH&& eh) : destination{dest}, error_handler{eh} {}
     template <typename VT>
-    void value(VT const& vt, typename std::enable_if<std::is_convertible<VT, T>::value>::type* ptr = nullptr)
+    void value(VT const& vt, typename std::enable_if<std::is_convertible<VT, T>::value>::type* /*ptr*/ = nullptr)
     {
         destination = vt;
     }
     template <typename VT>
-    void value(VT const& vt, typename std::enable_if<!std::is_convertible<VT, T>::value>::type* ptr = nullptr)
+    void value(VT const&, typename std::enable_if<!std::is_convertible<VT, T>::value>::type* /*ptr*/ = nullptr)
     {
         error_handler();
     }
-    void string_value_start(sv_t const& s) { error_handler(); }
+    void string_value_start(sv_t const&) { error_handler(); }
     void string_value_cont(sv_t const&) { error_handler(); }
     void string_value_end() { error_handler(); }
     void array_start() { error_handler(); }
@@ -143,16 +143,16 @@ struct value_handler<Traits, std::vector<T, A>, EH> : default_handler<Traits>
     bool astart{false};
     value_handler(std::vector<T, A>& dest, EH&& eh) : destination{dest}, error_handler{eh} {}
     template <typename VT>
-    void value(VT const& vt, typename std::enable_if<std::is_convertible<VT, T>::value>::type* ptr = nullptr)
+    void value(VT const& vt, typename std::enable_if<std::is_convertible<VT, T>::value>::type* /*ptr*/ = nullptr)
     {
         destination.push_back(vt);
     }
     template <typename VT>
-    void value(VT const& vt, typename std::enable_if<!std::is_convertible<VT, T>::value>::type* ptr = nullptr)
+    void value(VT const&, typename std::enable_if<!std::is_convertible<VT, T>::value>::type* /*ptr*/ = nullptr)
     {
         error_handler();
     }
-    void string_value_start(sv_t const& s) { error_handler(); }
+    void string_value_start(sv_t const&) { error_handler(); }
     void string_value_cont(sv_t const&) { error_handler(); }
     void string_value_end() { error_handler(); }
     void array_start() { astart = true; }
@@ -170,7 +170,7 @@ struct value_handler<Traits, std::vector<std::string, A>, EH> : default_handler<
     bool                         astart{false};
     value_handler(std::vector<std::string, A>& dest, EH&& eh) : destination{dest}, error_handler{eh} {}
     template <typename VT>
-    void value(VT const& vt)
+    void value(VT const&)
     {
         error_handler();
     }
@@ -214,7 +214,7 @@ struct extractor
 {
     tiny_tuple::tuple<Ts...> data;
     EH                       error_handler;
-    constexpr extractor(EH&& eh, Ts&&... ts) noexcept : error_handler{eh}, data{ts...} {}
+    constexpr extractor(EH&& eh, Ts&&... ts) noexcept : data{ts...}, error_handler{eh} {}
 
     using sv_t      = typename Traits::sv_t;
     using integer_t = typename Traits::integer_t;

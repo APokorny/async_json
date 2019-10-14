@@ -25,7 +25,10 @@ find_package(hsm)
 option(async_json_BUILD_TESTS "Build examples and tests" ON)
 add_library(async_json INTERFACE)
 target_link_libraries(async_json INTERFACE hsm)
-target_include_directories(async_json INTERFACE include/)
+target_include_directories(async_json INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
+    $<INSTALL_INTERFACE:include>
+    )
+install(TARGETS async_json DESTINATION include)
 
 if(async_json_BUILD_TESTS)
     add_subdirectory(test)
