@@ -7,12 +7,18 @@
 #ifndef ASYNC_JSON_UTILS_H
 #define ASYNC_JSON_UTILS_H
 
+#include <algorithm>
+#include <iostream>
+
 namespace async_json
 {
 template <typename SvT, typename S>
 constexpr auto matches(SvT literal, S const& str)
 {
-    return [&str, literal]() { return literal == str; };
+    return [&str, literal]() {
+        std::cout << literal << " to match " << str << "\n";
+        return literal == str;
+    };
 }
 
 template <typename S, typename T>

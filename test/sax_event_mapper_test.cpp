@@ -3,40 +3,42 @@
 #include <iomanip>
 #include <vector>
 #include <functional>
-#include <async_json/sax_event_mapper.hpp>
+#include <async_json/saj_event_mapper.hpp>
 #include "catch.hpp"
 
 namespace a = async_json;
 
-TEST_CASE("SaxEventMapper: test")
+TEST_CASE("SajEventMapper: test")
 {
     using namespace std::literals;
-    struct Stuff : a::SaxEventMapper<Stuff>
+    struct Stuff : a::saj_event_mapper<Stuff>
     {
         // TODO Put this in the class decl?
-        std::function<void(uint8_t)> process_event;
+        std::function<void(a::saj_event_value<a::default_traits>)> process_event;
 
         Stuff()
         {
-            auto sm       = async_json::create_sax_handler();
+            auto sm = async_json::create_saj_state_machine();
             sm.start();
-            process_event = [this, sm = std::move(sm)](uint8_t b) mutable {
-                switch (b)
+            process_event = [this, sm = std::move(sm)](a::saj_event_value<a::default_traits> b) mutable {
+                switch (b.event)
                 {
-                    case a::sax_integer_value: return sm.process_event(a::i_value);
-                    case a::sax_boolean_value: return sm.process_event(a::b_value);
-                    case a::sax_float_value: return sm.process_event(a::f_value);
-                    case a::sax_null_value: return sm.process_event(a::n_value);
-                    case a::sax_object_start: return sm.process_event(a::o_start);
-                    case a::sax_object_end: return sm.process_event(a::o_end);
-                    case a::sax_array_start: return sm.process_event(a::a_start);
-                    case a::sax_array_end: return sm.process_event(a::a_end);
-                    case a::sax_object_name_start: return sm.process_event(a::on_start);
-                    case a::sax_object_name_cont: return sm.process_event(a::on_cont);
-                    case a::sax_object_name_end: return sm.process_event(a::on_end);
-                    case a::sax_string_value_start: return sm.process_event(a::str_start);
-                    case a::sax_string_value_cont: return sm.process_event(a::str_cont);
-                    case a::sax_string_value_end: return sm.process_event(a::str_end);
+                    case a::saj_event::integer_value: return sm.process_event(a::i_value);
+                    case a::saj_event::boolean_value: return sm.process_event(a::b_value);
+                    case a::saj_event::float_value: return sm.process_event(a::f_value);
+                    case a::saj_event::null_value: return sm.process_event(a::n_value);
+                    case a::saj_event::object_start: return sm.process_event(a::o_start);
+                    case a::saj_event::object_end: return sm.process_event(a::o_end);
+                    case a::saj_event::array_start: return sm.process_event(a::a_start);
+                    case a::saj_event::array_end: return sm.process_event(a::a_end);
+                    case a::saj_event::object_name_start: return sm.process_event(a::on_start);
+                    case a::saj_event::object_name_cont: return sm.process_event(a::on_cont);
+                    case a::saj_event::object_name_end: return sm.process_event(a::on_end);
+                    case a::saj_event::string_value_start: return sm.process_event(a::str_start);
+                    case a::saj_event::string_value_cont: return sm.process_event(a::str_cont);
+                    case a::saj_event::string_value_end: return sm.process_event(a::str_end);
+                    case a::saj_event::parse_error:
+                    default: return false;
                 }
             };
         }

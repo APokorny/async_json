@@ -225,7 +225,7 @@ struct basic_json_parser
             cb->string_value_end();
         };
 
-        auto error_action       = [cb](error_cause reason) { return [reason, cb]() { cb->error(reason); }; };
+        auto error_action       = [cb, this](error_cause reason) { return [reason, cb, this]() { cb->error(reason); }; };
         auto stack_empty        = [this]() { return state_stack.size() == 0; };
         auto no_object_on_stack = [this]() { return state_stack.size() == 0 || state_stack.back() != 0; };
         auto object_on_stack    = [this]() { return state_stack.size() && state_stack.back() == 0; };
@@ -251,8 +251,7 @@ struct basic_json_parser
                 digit / add_digit(int_number)                 = int_number_state,  //
                 minus / negate(num_sign)                      = int_number_ws,     //
                 eoi                                           = hsm::internal,     //
-                hsm::any / error_action(unexpected_character) = error              //
-                ),                                                                 //
+                hsm::any / error_action(unexpected_character) = error),
             int_number_state(                                                      //
                 int_number_ws(                                                     //
                     whitespace                    = hsm::internal,                 //
@@ -265,8 +264,7 @@ struct basic_json_parser
                 idx_close / emit_number                 = array_object_idx_close,  //
                 whitespace / emit_number                = array_object,            //
                 eoi                                     = hsm::internal,           //
-                hsm::any / error_action(invalid_number) = error                    //
-                ),
+                hsm::any / error_action(invalid_number) = error),
             fraction_number(                                                          //
                 digit / add_digit_c(fraction, frac_digits) = hsm::internal,           //
                 exponent                                   = exp_sign_state,          //
@@ -275,8 +273,7 @@ struct basic_json_parser
                 idx_close / emit_fraction                  = array_object_idx_close,  //
                 whitespace / emit_fraction                 = array_object,            //
                 eoi                                        = hsm::internal,           //
-                hsm::any / error_action(invalid_number)    = error                    //
-                ),
+                hsm::any / error_action(invalid_number)    = error),
             exp_state(                                                        //
                 digit / add_digit(exp_number) = hsm::internal,                //
                 exp_sign_state(                                               //
@@ -284,23 +281,20 @@ struct basic_json_parser
                     plus / negate(exp_sign)                 = exp_state,      //
                     digit / add_digit(exp_number)           = exp_state,      //
                     eoi                                     = hsm::internal,  //
-                    hsm::any / error_action(invalid_number) = error           //
-                    ),
+                    hsm::any / error_action(invalid_number) = error),
                 comma / emit_exp_fraction               = array_object_comma,      //
                 br_close / emit_exp_fraction            = array_object_br_close,   //
                 idx_close / emit_exp_fraction           = array_object_idx_close,  //
                 whitespace / emit_exp_fraction          = array_object,            //
                 eoi                                     = hsm::internal,           //
-                hsm::any / error_action(invalid_number) = error                    //
-                ),
+                hsm::any / error_action(invalid_number) = error),
             string_start(  //
                 hsm::any / mem_start_str = string_start_cont,
                 string_start_ch(                                    //
                     hsm::any / mem_add_ch = hsm::internal,          //
                     string_start_cont(                              //
                         quot / emit_str_first_last = array_object,  //
-                        eoi / emit_str_first       = string_n)            //
-                    )),
+                        eoi / emit_str_first       = string_n))),
             string_n(                                     //
                 quot / emit_str_n_last   = array_object,  //
                 hsm::any / mem_start_str = string_n_cont,
@@ -308,14 +302,14 @@ struct basic_json_parser
                     hsm::any / mem_add_ch = hsm::internal,      //
                     string_n_cont(                              //
                         quot / emit_str_n_last = array_object,  //
-                        eoi / emit_str_n       = string_n))           //
-                ),
+                        eoi / emit_str_n       = string_n))),
             member(                                                          //
                 hsm::initial = expect_quot,                                  //
                 expect_quot(                                                 //
                     whitespace                             = hsm::internal,  //
-                    quot                                   = name_start,     //
-                    br_close[object_on_stack] / pop_object = array_object,   //
+                    eoi                                    = hsm::internal,
+                    quot                                   = name_start,    //
+                    br_close[object_on_stack] / pop_object = array_object,  //
                     hsm::any / error_action(member_exp)    = error),
                 name_start(  //
                     hsm::any / mem_start_str = name_start_cont,
@@ -323,19 +317,15 @@ struct basic_json_parser
                         hsm::any / mem_add_ch = hsm::internal,           //
                         name_start_cont(                                 //
                             quot / emit_name_first_last = expect_colon,  //
-                            eoi / emit_name_first       = name_n))),           //
-                name_n(                                                  //
-                    quot / emit_name_n_last  = expect_colon,             //
+                            eoi / emit_name_first       = name_n))),
+                name_n(                                       //
+                    quot / emit_name_n_last  = expect_colon,  //
                     hsm::any / mem_start_str = name_n_cont,
                     name_n_ch(                                       //
                         hsm::any / mem_add_ch = hsm::internal,       //
                         name_n_cont(                                 //
                             quot / emit_name_n_last = expect_colon,  //
-                            eoi / emit_name_n       = name_n         //
-                            )                                        //
-                        )                                            //
-                    )                                                //
-                ),
+                            eoi / emit_name_n       = name_n)))),
             expect_colon(                                            //
                 whitespace                         = expect_colon,   //
                 colon                              = json_state,     //
