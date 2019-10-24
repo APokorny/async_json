@@ -71,16 +71,24 @@ constexpr const char* error_str(a::error_cause cause)
     }
 }
 
+struct sp_float
+{
+    using float_t   = float;
+    using integer_t = int;
+    using sv_t      = async_json::default_traits::sv_t;
+};
+
+template <typename T = async_json::default_traits>
 struct test_handler
 {
     std::vector<call> calls;
-    using traits    = async_json::default_traits;
-    using float_t   = traits::float_t;
-    using integer_t = traits::integer_t;
-    using sv_t      = traits::sv_t;
+    using traits    = T;
+    using float_t   = typename traits::float_t;
+    using integer_t = typename traits::integer_t;
+    using sv_t      = typename traits::sv_t;
 
     void value(bool a) { calls.push_back(call{call_type::boolean, ptrdiff_t(a)}); }
-    void value(float_t n) { calls.push_back(call{call_type::double_value, 0, "", n}); }
+    void value(float_t n) { std::cout << n<< " " << static_cast<double>(n) << std::endl; calls.push_back(call{call_type::double_value, 0, "", n}); }
     void value(integer_t n) { calls.push_back(call{call_type::integer_value, n}); }
     void value(sv_t const& a) { calls.push_back(call{call_type::string_value, 0, std::string(a.begin(), a.end())}); }
     void string_value_start(sv_t const& a) { calls.push_back(call{call_type::string_value, 0, std::string(a.begin(), a.end())}); }
@@ -106,48 +114,48 @@ struct test_handler
 
 TEST_CASE("Detect keywords: null")
 {
-    char const                         input_buffer[] = "   null   ";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = "   null   ";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::obj_ref, 0}}));
 }
 
 TEST_CASE("Detect keywords: true")
 {
-    char const                         input_buffer[] = "   true ";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = "   true ";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::boolean, 1}}));
 }
 
 TEST_CASE("Detect keywords: false")
 {
-    char const                         input_buffer[] = " false ";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = " false ";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::boolean, 0}}));
 }
 
 TEST_CASE("Error in keyword: false")
 {
-    char const                         input_buffer[] = " fase ";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = " fase ";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls,
                  Catch::Matchers::Equals(std::vector<call>{{call_type::parse_error, a::wrong_keyword_character}}));
 }
 TEST_CASE("parse empty object")
 {
-    char const                         input_buffer[] = R"( {} )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( {} )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls,
                  Catch::Matchers::Equals(std::vector<call>{{call_type::object_start}, {call_type::object_end}}));
 }
 TEST_CASE("Error: object expects member name")
 {
-    char const                         input_buffer[] = R"( { [ }] )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( { [ }] )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls,
                  Catch::Matchers::Equals(std::vector<call>{{call_type::object_start}, {call_type::parse_error, a::member_exp}}));
@@ -155,8 +163,8 @@ TEST_CASE("Error: object expects member name")
 
 TEST_CASE("Parse named object")
 {
-    char const                         input_buffer[] = R"( { "blubber": {} } )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( { "blubber": {} } )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::object_start},
                                                                                         {call_type::named_object, 0, "blubber"},
@@ -167,8 +175,8 @@ TEST_CASE("Parse named object")
 
 TEST_CASE("Error object members must be named")
 {
-    char const                         input_buffer[] = R"( { "blubber": {}, {} } )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( { "blubber": {}, {} } )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::object_start},
                                                                                         {call_type::named_object, 0, "blubber"},
@@ -179,8 +187,8 @@ TEST_CASE("Error object members must be named")
 
 TEST_CASE("String values")
 {
-    char const                         input_buffer[] = R"( { "mmm1": "wert", "mem2": "wert3"} )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( { "mmm1": "wert", "mem2": "wert3"} )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::object_start},
                                                                                         {call_type::named_object, 0, "mmm1"},
@@ -192,8 +200,8 @@ TEST_CASE("String values")
 
 TEST_CASE("Array : strings")
 {
-    char const                         input_buffer[] = R"( [ "m", "w", "m", "w"] )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( [ "m", "w", "m", "w"] )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::array_start},
                                                                                         {call_type::string_value, 0, "m"},
@@ -204,8 +212,8 @@ TEST_CASE("Array : strings")
 }
 TEST_CASE("Array : error: comma seperation")
 {
-    char const                         input_buffer[] = R"( [ "m", "w", "m" "w"] )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( [ "m", "w", "m" "w"] )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::array_start},
                                                                                         {call_type::string_value, 0, "m"},
@@ -216,56 +224,64 @@ TEST_CASE("Array : error: comma seperation")
 
 TEST_CASE("Number: integer number")
 {
-    char const                         input_buffer[] = R"( 901 )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( 901 )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::integer_value, 901}}));
 }
 
 TEST_CASE("Number: negative integer number")
 {
-    char const                         input_buffer[] = R"( -21901 )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( -21901 )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::integer_value, -21901}}));
 }
 
 TEST_CASE("Number: double number")
 {
-    char const                         input_buffer[] = R"( 908.231 )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( 908.231 )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::double_value, 0, "", 908.231}}));
 }
 
 TEST_CASE("Number: negative double number")
 {
-    char const                         input_buffer[] = R"( -0.1231231927 )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( -0.1231231927 )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::double_value, 0, "", -0.1231231927}}));
 }
 
 TEST_CASE("Number: exponent number")
 {
-    char const                         input_buffer[] = R"( 1.2e-3 )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( 1.2e-3 )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::double_value, 0, "", 1.2E-3}}));
 }
 
 TEST_CASE("Number: Exponent number")
 {
-    char const                         input_buffer[] = R"( 1.2E-3 )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( 1.2E-3 )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::double_value, 0, "", 1.2E-3}}));
 }
 
+TEST_CASE("Number: float number")
+{
+    char const                                             input_buffer[] = R"( 4721.32 )";
+    a::basic_json_parser<test_handler<sp_float>, sp_float> p;
+    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::double_value, 0, "", 4721.32f}}));
+}
+
 TEST_CASE("Array : integers")
 {
-    char const                         input_buffer[] = R"( [ 1, 3, -123, 12] )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( [ 1, 3, -123, 12] )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::array_start},
                                                                                         {call_type::integer_value, 1},
@@ -277,8 +293,8 @@ TEST_CASE("Array : integers")
 
 TEST_CASE("Array : doubles")
 {
-    char const                         input_buffer[] = R"( [ 1E-4, 12.4, -1.23, 12] )";
-    a::basic_json_parser<test_handler> p;
+    char const                           input_buffer[] = R"( [ 1E-4, 12.4, -1.23, 12] )";
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::array_start},
                                                                                         {call_type::double_value, 0, "", 1E-4},
@@ -291,7 +307,7 @@ TEST_CASE("Array : doubles")
 TEST_CASE("partial input on text value")
 {
     using namespace std::literals;
-    a::basic_json_parser<test_handler> p;
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(R"( { "blubber": "long te)"sv);
     p.parse_bytes(R"(xt string"}  )"sv);
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::object_start},
@@ -303,7 +319,7 @@ TEST_CASE("partial input on text value")
 TEST_CASE("partial input on text value 2")
 {
     using namespace std::literals;
-    a::basic_json_parser<test_handler> p;
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(R"( { "blubber": "long text string)"sv);
     p.parse_bytes(R"("}  )"sv);
     REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::object_start},
@@ -312,11 +328,10 @@ TEST_CASE("partial input on text value 2")
                                                                                         {call_type::object_end}}));
 }
 
-
 TEST_CASE("partial input on text value 3")
 {
     using namespace std::literals;
-    a::basic_json_parser<test_handler> p;
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(R"( { "blubber": "long)"sv);
     p.parse_bytes(R"( text)"sv);
     p.parse_bytes(R"( string)"sv);
@@ -330,16 +345,17 @@ TEST_CASE("partial input on text value 3")
 TEST_CASE("partial input on object name")
 {
     using namespace std::literals;
-    a::basic_json_parser<test_handler> p;
+    a::basic_json_parser<test_handler<>> p;
     p.parse_bytes(R"( { "you )"sv);
     p.parse_bytes(R"(should not)"sv);
     p.parse_bytes(R"( create overlong object names -)"sv);
     p.parse_bytes(R"( but even if you do it will )"sv);
     p.parse_bytes(R"(work": 12  })"sv);
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::object_start},
-                                                                                        {call_type::named_object, 0, "you should not create overlong object names - but even if you do it will work"},
-                                                                                        {call_type::integer_value, 12},
-                                                                                        {call_type::object_end}}));
+    REQUIRE_THAT(p.callback_handler()->calls,
+                 Catch::Matchers::Equals(std::vector<call>{
+                     {call_type::object_start},
+                     {call_type::named_object, 0, "you should not create overlong object names - but even if you do it will work"},
+                     {call_type::integer_value, 12},
+                     {call_type::object_end}}));
 }
-
 
