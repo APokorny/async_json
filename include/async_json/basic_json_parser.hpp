@@ -152,7 +152,8 @@ struct basic_json_parser
             return ret;
         };
         auto get_fraction = [this]() {
-            float_t ret = num_sign * (static_cast<integer_t>(int_number) + static_cast<float_t>(fraction) / std::pow(10, frac_digits));
+            float_t ret = num_sign * (static_cast<integer_t>(int_number) +
+                                      static_cast<float_t>(fraction) / static_cast<float_t>(std::pow(10, frac_digits)));
             int_number  = 0;
             num_sign    = 1;
             fraction    = 0;
@@ -160,7 +161,7 @@ struct basic_json_parser
             return ret;
         };
         auto get_fraction_we = [get_fraction, this]() {
-            float_t ret = get_fraction() * std::pow(10, exp_sign * static_cast<integer_t>(exp_number));
+            float_t ret = get_fraction() * static_cast<float_t>(std::pow(10, exp_sign * static_cast<integer_t>(exp_number)));
             exp_number  = 0;
             exp_sign    = 1;
             return ret;
