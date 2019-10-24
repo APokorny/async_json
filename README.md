@@ -2,6 +2,17 @@
 
 A library for parsing json in parts avoiding the need to keep the complete document in memory. The parsing works through a statemachine with a state stack for nested arrays and objects.
 
+## ATTENTION
+
+In the current state valid json documents are mis-parsed because \" escape sequences are not yet supported. 
+
+## TODO:
+* handle grammar relevant escape sequences in input stream
+* provide utilities to optionally convert \u unicode escape symbols and similar
+* optimize binary size and performance by improving hsm
+* find a better way to parse floats/doubles.
+* printing
+
 ## License
 
 Boost Software License.
