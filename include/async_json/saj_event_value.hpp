@@ -35,21 +35,21 @@ constexpr std::underlying_type_t<E> cast(E v) noexcept
 }
 enum class saj_event : uint8_t
 {
-    null_value         = 0 + cast(saj_variant_value::none),
-    integer_value      = 1 + cast(saj_variant_value::number),
-    boolean_value      = 2 + cast(saj_variant_value::boolean),
-    float_value        = 3 + cast(saj_variant_value::float_number),
-    object_start       = 4 + cast(saj_variant_value::none),
-    object_end         = 5 + cast(saj_variant_value::none),
-    array_start        = 6 + cast(saj_variant_value::none),
-    array_end          = 7 + cast(saj_variant_value::none),
-    object_name_start  = 8 + cast(saj_variant_value::string),
-    object_name_cont   = 9 + cast(saj_variant_value::string),
-    object_name_end    = 10 + cast(saj_variant_value::none),
-    string_value_start = 11 + cast(saj_variant_value::string),
-    string_value_cont  = 12 + cast(saj_variant_value::string),
-    string_value_end   = 13 + cast(saj_variant_value::none),
-    parse_error        = 14 + cast(saj_variant_value::error)
+    null_value         = 1 + cast(saj_variant_value::none),
+    integer_value      = 2 + cast(saj_variant_value::number),
+    boolean_value      = 3 + cast(saj_variant_value::boolean),
+    float_value        = 4 + cast(saj_variant_value::float_number),
+    object_start       = 5 + cast(saj_variant_value::none),
+    object_end         = 6 + cast(saj_variant_value::none),
+    array_start        = 7 + cast(saj_variant_value::none),
+    array_end          = 8 + cast(saj_variant_value::none),
+    object_name_start  = 9 + cast(saj_variant_value::string),
+    object_name_cont   = 10 + cast(saj_variant_value::string),
+    object_name_end    = 11 + cast(saj_variant_value::none),
+    string_value_start = 12 + cast(saj_variant_value::string),
+    string_value_cont  = 13 + cast(saj_variant_value::string),
+    string_value_end   = 14 + cast(saj_variant_value::none),
+    parse_error        = 15 + cast(saj_variant_value::error)
 };
 
 template <typename Traits>
@@ -104,6 +104,7 @@ struct saj_event_value
     {
         return static_cast<saj_variant_value>(cast(event) & cast(saj_variant_value::mask));
     }
+    constexpr auto as_event_id() const noexcept { return cast(event) & 0xF; }
 };
 
 }  // namespace async_json
