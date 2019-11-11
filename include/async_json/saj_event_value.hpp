@@ -61,7 +61,7 @@ struct saj_event_value
 
     saj_event event{saj_event::null_value};
     // yes this should be a variant - but we are only using ~= C++14 for some time
-    std::aligned_storage_t<std::max(sizeof(sv_t), std::max(sizeof(float_t), std::max(sizeof(error_cause), sizeof(integer_t))))> store;
+    std::aligned_storage_t<std::max(sizeof(sv_t), std::max(sizeof(float_t), std::max(sizeof(error_cause), sizeof(integer_t))))> store{0};
 
     constexpr saj_event_value()                        = default;
     constexpr saj_event_value(saj_event_value const &) = default;

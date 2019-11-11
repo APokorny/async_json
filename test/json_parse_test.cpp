@@ -359,3 +359,16 @@ TEST_CASE("partial input on object name")
                      {call_type::object_end}}));
 }
 
+
+TEST_CASE("escape sequences")
+{
+    using namespace std::literals;
+    a::basic_json_parser<test_handler<>> p;
+    p.parse_bytes(R"( { "str": "string with \" inside"})"sv);
+    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::object_start},
+                                                                                        {call_type::named_object, 0, "str"},
+                                                                                        {call_type::string_value, 0,R"(string with \" inside)"},
+                                                                                        {call_type::object_end}}));
+}
+
+
