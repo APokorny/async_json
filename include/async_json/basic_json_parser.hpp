@@ -66,6 +66,12 @@ constexpr hsm::state_ref<struct array_object_comma_s>     array_object_comma;
 constexpr hsm::state_ref<struct array_object_br_close_s>  array_object_br_close;
 constexpr hsm::state_ref<struct array_object_idx_close_s> array_object_idx_close;
 constexpr hsm::state_ref<struct array_object_s>           array_object;
+
+template <error_cause err, typename S>
+constexpr auto error_action()
+{
+    return [](S& self) { self.callback_handler()->error(error_cause{err}); };
+}
 }  // namespace detail
 
 template <typename Traits>
@@ -116,181 +122,195 @@ struct basic_json_parser
     sv_t            parsed_view;
     sv_t            current_input_buffer;
 
-    int                                   num_sign{1};
-    int                                   exp_sign{1};
-    int                                   frac_digits{0};
-    unsigned long long                    exp_number{0};
-    unsigned long long                    int_number{0};
-    unsigned long long                    fraction{0};
-    std::vector<uint8_t>                  state_stack;
-    std::function<bool(sv_t const&, int)> process_events;
+    int                  num_sign{1};
+    int                  exp_sign{1};
+    int                  frac_digits{0};
+    unsigned long long   exp_number{0};
+    unsigned long long   int_number{0};
+    unsigned long long   fraction{0};
+    std::vector<uint8_t> state_stack;
+    using self_t = basic_json_parser<Handler, Traits>;
+    std::function<bool(sv_t const&, int, self_t&)> process_events;
 
+   private:
+    float_t get_fraction_we()
+    {
+        float_t ret = get_fraction() * static_cast<float_t>(std::pow(10, exp_sign * static_cast<integer_t>(exp_number)));
+        exp_number  = 0;
+        exp_sign    = 1;
+        return ret;
+    };
+
+    integer_t get_number()
+    {
+        integer_t ret = num_sign * static_cast<integer_t>(int_number);
+        int_number    = 0;
+        num_sign      = 1;
+        return ret;
+    };
+    float_t get_fraction()
+    {
+        float_t ret = num_sign * (static_cast<integer_t>(int_number) +
+                                  static_cast<float_t>(fraction) / static_cast<float_t>(std::pow(10, frac_digits)));
+        int_number  = 0;
+        num_sign    = 1;
+        fraction    = 0;
+        frac_digits = 0;
+        return ret;
+    };
     void setup_sm()
     {
         using namespace hsm::literals;
-        auto* cb                  = this->callback_handler();
-        auto  kw_consume          = [this]() { return cur == kw_state.kw[kw_state.pos] && 0 != kw_state.kw[kw_state.pos + 1]; };
-        auto  setup_kw            = [this](char const* name) { return [this, name]() { kw_state = keyword_receive{name, 1}; }; };
-        auto  kw_complete         = [this]() { return cur == kw_state.kw[kw_state.pos] && 0 == kw_state.kw[kw_state.pos + 1]; };
-        auto  kw_wrong_char       = [this]() { return cur != kw_state.kw[kw_state.pos]; };
-        auto  kw_consume_char     = [this]() { ++kw_state.pos; };
-        auto  kw_complete_keyword = [cb, this]() {
-            if (kw_state.kw == sv_t{"null"})
-                cb->value(nullptr);
-            else if (kw_state.kw == sv_t{"true"})
-                cb->value(true);
+        auto kw_consume = [](self_t& self) {
+            return self.cur == self.kw_state.kw[self.kw_state.pos] && 0 != self.kw_state.kw[self.kw_state.pos + 1];
+        };
+        auto setup_true  = [](self_t& self) { self.kw_state = keyword_receive{"true", 1}; };
+        auto setup_false = [](self_t& self) { self.kw_state = keyword_receive{"false", 1}; };
+        auto setup_null  = [](self_t& self) { self.kw_state = keyword_receive{"null", 1}; };
+        auto kw_complete = [](self_t& self) {
+            return self.cur == self.kw_state.kw[self.kw_state.pos] && 0 == self.kw_state.kw[self.kw_state.pos + 1];
+        };
+        auto kw_wrong_char       = [](self_t& self) { return self.cur != self.kw_state.kw[self.kw_state.pos]; };
+        auto kw_consume_char     = [](self_t& self) { ++self.kw_state.pos; };
+        auto kw_complete_keyword = [](self_t& self) {
+            if (self.kw_state.kw == sv_t{"null"})
+                self.cbs.value(nullptr);
+            else if (self.kw_state.kw == sv_t{"true"})
+                self.cbs.value(true);
             else
-                cb->value(false);
+                self.cbs.value(false);
         };
 
-        auto negate      = [](auto& sign) { return [&sign]() { sign = -1; }; };
-        auto add_digit   = [this](auto& num) { return [&num, this]() { num = num * 10 + (cur - '0'); }; };
-        auto add_digit_c = [this](auto& num, auto& count) { return [&num, &count, this]() { ++count, num = num * 10 + (cur - '0'); }; };
-        auto get_number  = [this]() {
-            integer_t ret = num_sign * static_cast<integer_t>(int_number);
-            int_number    = 0;
-            num_sign      = 1;
-            return ret;
+        auto negate_exp         = [](self_t& self) { self.exp_sign = -1; };
+        auto negate_num         = [](self_t& self) { self.num_sign = -1; };
+        auto add_digit_num      = [](self_t& self) { self.int_number = self.int_number * 10 + (self.cur - '0'); };
+        auto add_digit_exp      = [](self_t& self) { self.exp_number = self.exp_number * 10 + (self.cur - '0'); };
+        auto add_digit_fraction = [](self_t& self) { ++self.frac_digits, self.fraction = self.fraction * 10 + (self.cur - '0'); };
+
+        auto emit_number       = [](self_t& self) { self.cbs.value(self.get_number()); };
+        auto emit_fraction     = [](self_t& self) { self.cbs.value(self.get_fraction()); };
+        auto emit_exp_fraction = [](self_t& self) { self.cbs.value(self.get_fraction_we()); };
+        auto push_object       = [](self_t& self) {
+            self.cbs.object_start();
+            self.state_stack.push_back(0);
         };
-        auto get_fraction = [this]() {
-            float_t ret = num_sign * (static_cast<integer_t>(int_number) +
-                                      static_cast<float_t>(fraction) / static_cast<float_t>(std::pow(10, frac_digits)));
-            int_number  = 0;
-            num_sign    = 1;
-            fraction    = 0;
-            frac_digits = 0;
-            return ret;
+        auto pop_object = [](self_t& self) {
+            self.cbs.object_end();
+            self.state_stack.pop_back();
         };
-        auto get_fraction_we = [get_fraction, this]() {
-            float_t ret = get_fraction() * static_cast<float_t>(std::pow(10, exp_sign * static_cast<integer_t>(exp_number)));
-            exp_number  = 0;
-            exp_sign    = 1;
-            return ret;
+        auto push_array = [](self_t& self) {
+            self.cbs.array_start();
+            self.state_stack.push_back(1);
+        };
+        auto pop_array = [](self_t& self) {
+            self.cbs.array_end();
+            self.state_stack.pop_back();
+        };
+        auto emit_name_first = [](self_t& self) {
+            self.cbs.named_object_start(self.parsed_view);
+            self.parsed_view = sv_t(nullptr, 0);
         };
 
-        auto emit_number       = [cb, get_number]() { cb->value(get_number()); };
-        auto emit_fraction     = [cb, get_fraction]() { cb->value(get_fraction()); };
-        auto emit_exp_fraction = [cb, get_fraction_we]() { cb->value(get_fraction_we()); };
-        auto push_object       = [cb, this]() {
-            cb->object_start();
-            state_stack.push_back(0);
-        };
-        auto pop_object = [cb, this]() {
-            cb->object_end();
-            state_stack.pop_back();
-        };
-        auto push_array = [cb, this]() {
-            cb->array_start();
-            state_stack.push_back(1);
-        };
-        auto pop_array = [cb, this]() {
-            cb->array_end();
-            state_stack.pop_back();
-        };
-        auto emit_name_first = [cb, this]() {
-            cb->named_object_start(parsed_view);
-            parsed_view = sv_t(nullptr, 0);
+        auto emit_name_first_last = [](self_t& self) {
+            self.cbs.named_object(self.parsed_view);
+            self.parsed_view = sv_t(nullptr, 0);
         };
 
-        auto emit_name_first_last = [cb, this]() {
-            cb->named_object(parsed_view);
-            parsed_view = sv_t(nullptr, 0);
+        auto emit_name_n = [](self_t& self) {
+            if (self.parsed_view.size()) self.cbs.named_object_cont(self.parsed_view);
+            self.parsed_view = sv_t(nullptr, 0);
         };
 
-        auto emit_name_n = [cb, this]() {
-            if (parsed_view.size()) cb->named_object_cont(parsed_view);
-            parsed_view = sv_t(nullptr, 0);
+        auto emit_name_n_last = [](self_t& self) {
+            if (self.parsed_view.size()) self.cbs.named_object_cont(self.parsed_view);
+            self.parsed_view = sv_t(nullptr, 0);
+            self.cbs.named_object_end();
         };
 
-        auto emit_name_n_last = [cb, emit_name_n]() {
-            emit_name_n();
-            cb->named_object_end();
+        auto emit_str_first = [](self_t& self) {
+            self.cbs.string_value_start(self.parsed_view);
+            self.parsed_view = sv_t(nullptr, 0);
         };
 
-        auto emit_str_first = [cb, this]() {
-            cb->string_value_start(parsed_view);
-            parsed_view = sv_t(nullptr, 0);
+        auto emit_str_first_last = [](self_t& self) {
+            self.cbs.value(self.parsed_view);
+            self.parsed_view = sv_t(nullptr, 0);
         };
 
-        auto emit_str_first_last = [cb, this]() {
-            cb->value(parsed_view);
-            parsed_view = sv_t(nullptr, 0);
+        auto emit_str_n = [](self_t& self) {
+            if (self.parsed_view.size()) self.cbs.string_value_cont(self.parsed_view);
+            self.parsed_view = sv_t(nullptr, 0);
         };
 
-        auto emit_str_n = [cb, this]() {
-            if (parsed_view.size()) cb->string_value_cont(parsed_view);
-            parsed_view = sv_t(nullptr, 0);
+        auto emit_str_n_last = [](self_t& self) {
+            if (self.parsed_view.size()) self.cbs.string_value_cont(self.parsed_view);
+            self.parsed_view = sv_t(nullptr, 0);
+            self.cbs.string_value_end();
         };
 
-        auto emit_str_n_last = [cb, emit_str_n]() {
-            emit_str_n();
-            cb->string_value_end();
-        };
-
-        auto error_action       = [cb, this](error_cause reason) { return [reason, cb, this]() { cb->error(reason); }; };
-        auto stack_empty        = [this]() { return state_stack.size() == 0; };
-        auto no_object_on_stack = [this]() { return state_stack.size() == 0 || state_stack.back() != 0; };
-        auto object_on_stack    = [this]() { return state_stack.size() && state_stack.back() == 0; };
-        auto no_array_on_stack  = [this]() { return state_stack.size() == 0 || state_stack.back() != 1; };
-        auto array_on_stack     = [this]() { return state_stack.size() && state_stack.back() == 1; };
-        auto mem_start_str      = [this]() { parsed_view = sv_t(current_input_buffer.begin() + 1, 0); };
-        auto mem_n_str          = [this]() { parsed_view = sv_t(current_input_buffer.begin(), 1); };
-        auto mem_add_ch         = [this]() { parsed_view = sv_t(parsed_view.begin(), parsed_view.size() + 1); };
+        auto stack_empty        = [](self_t& self) { return self.state_stack.size() == 0; };
+        auto no_object_on_stack = [](self_t& self) { return self.state_stack.size() == 0 || self.state_stack.back() != 0; };
+        auto object_on_stack    = [](self_t& self) { return self.state_stack.size() && self.state_stack.back() == 0; };
+        auto no_array_on_stack  = [](self_t& self) { return self.state_stack.size() == 0 || self.state_stack.back() != 1; };
+        auto array_on_stack     = [](self_t& self) { return self.state_stack.size() && self.state_stack.back() == 1; };
+        auto mem_start_str      = [](self_t& self) { self.parsed_view = sv_t(self.current_input_buffer.begin() + 1, 0); };
+        auto mem_n_str          = [](self_t& self) { self.parsed_view = sv_t(self.current_input_buffer.begin(), 1); };
+        auto mem_add_ch         = [](self_t& self) { self.parsed_view = sv_t(self.parsed_view.begin(), self.parsed_view.size() + 1); };
 
         using namespace async_json::detail;
-        auto sm = hsm::create_state_machine(  //
-            ch,                               // catch all event
+        auto sm = hsm::create_state_machine<self_t>(  //
+            ch,                                       // catch all event
             done,
-            error,                                                              //
-            hsm::initial = json_state,                                          //
-            json_state(                                                         //
-                whitespace                                    = hsm::internal,  //
-                n / setup_kw("null")                          = keyword,
-                f / setup_kw("false")                         = keyword,            //
-                t / setup_kw("true")                          = keyword,            //
-                br_open / push_object                         = member,             //
-                idx_open / push_array                         = json_state,         //
-                quot / mem_start_str                          = string_start_cont,  //
-                digit / add_digit(int_number)                 = int_number_state,   //
-                minus / negate(num_sign)                      = int_number_ws,      //
-                eoi                                           = hsm::internal,      //
-                hsm::any / error_action(unexpected_character) = error),
-            int_number_state(                                                      //
-                int_number_ws(                                                     //
-                    whitespace                    = hsm::internal,                 //
-                    digit / add_digit(int_number) = int_number_state),             //
-                digit / add_digit(int_number)           = hsm::internal,           //
-                dot                                     = fraction_number,         //
-                exponent                                = exp_sign_state,          //
-                comma / emit_number                     = array_object_comma,      //
-                br_close / emit_number                  = array_object_br_close,   //
-                idx_close / emit_number                 = array_object_idx_close,  //
-                whitespace / emit_number                = array_object,            //
-                eoi                                     = hsm::internal,           //
-                hsm::any / error_action(invalid_number) = error),
-            fraction_number(                                                          //
-                digit / add_digit_c(fraction, frac_digits) = hsm::internal,           //
-                exponent                                   = exp_sign_state,          //
-                comma / emit_fraction                      = array_object_comma,      //
-                br_close / emit_fraction                   = array_object_br_close,   //
-                idx_close / emit_fraction                  = array_object_idx_close,  //
-                whitespace / emit_fraction                 = array_object,            //
-                eoi                                        = hsm::internal,           //
-                hsm::any / error_action(invalid_number)    = error),
-            exp_state(                                                        //
-                digit / add_digit(exp_number) = hsm::internal,                //
-                exp_sign_state(                                               //
-                    minus / negate(exp_sign)                = exp_state,      //
-                    plus / negate(exp_sign)                 = exp_state,      //
-                    digit / add_digit(exp_number)           = exp_state,      //
-                    eoi                                     = hsm::internal,  //
-                    hsm::any / error_action(invalid_number) = error),
-                comma / emit_exp_fraction               = array_object_comma,      //
-                br_close / emit_exp_fraction            = array_object_br_close,   //
-                idx_close / emit_exp_fraction           = array_object_idx_close,  //
-                whitespace / emit_exp_fraction          = array_object,            //
-                eoi                                     = hsm::internal,           //
-                hsm::any / error_action(invalid_number) = error),
+            error,                                                                                //
+            hsm::initial = json_state,                                                            //
+            json_state(                                                                           //
+                whitespace                                                      = hsm::internal,  //
+                n / setup_null                                                  = keyword,
+                f / setup_false                                                 = keyword,            //
+                t / setup_true                                                  = keyword,            //
+                br_open / push_object                                           = member,             //
+                idx_open / push_array                                           = json_state,         //
+                quot / mem_start_str                                            = string_start_cont,  //
+                digit / add_digit_num                                           = int_number_state,   //
+                minus / negate_num                                              = int_number_ws,      //
+                eoi                                                             = hsm::internal,      //
+                hsm::any / detail::error_action<unexpected_character, self_t>() = error),
+            int_number_state(                                                                        //
+                int_number_ws(                                                                       //
+                    whitespace            = hsm::internal,                                           //
+                    digit / add_digit_num = int_number_state),                                       //
+                digit / add_digit_num                                     = hsm::internal,           //
+                dot                                                       = fraction_number,         //
+                exponent                                                  = exp_sign_state,          //
+                comma / emit_number                                       = array_object_comma,      //
+                br_close / emit_number                                    = array_object_br_close,   //
+                idx_close / emit_number                                   = array_object_idx_close,  //
+                whitespace / emit_number                                  = array_object,            //
+                eoi                                                       = hsm::internal,           //
+                hsm::any / detail::error_action<invalid_number, self_t>() = error),
+            fraction_number(                                                                         //
+                digit / add_digit_fraction                                = hsm::internal,           //
+                exponent                                                  = exp_sign_state,          //
+                comma / emit_fraction                                     = array_object_comma,      //
+                br_close / emit_fraction                                  = array_object_br_close,   //
+                idx_close / emit_fraction                                 = array_object_idx_close,  //
+                whitespace / emit_fraction                                = array_object,            //
+                eoi                                                       = hsm::internal,           //
+                hsm::any / detail::error_action<invalid_number, self_t>() = error),
+            exp_state(                                                                          //
+                digit / add_digit_exp = hsm::internal,                                          //
+                exp_sign_state(                                                                 //
+                    minus / negate_exp                                        = exp_state,      //
+                    plus / negate_exp                                         = exp_state,      //
+                    digit / add_digit_exp                                     = exp_state,      //
+                    eoi                                                       = hsm::internal,  //
+                    hsm::any / detail::error_action<invalid_number, self_t>() = error),
+                comma / emit_exp_fraction                                 = array_object_comma,      //
+                br_close / emit_exp_fraction                              = array_object_br_close,   //
+                idx_close / emit_exp_fraction                             = array_object_idx_close,  //
+                whitespace / emit_exp_fraction                            = array_object,            //
+                eoi                                                       = hsm::internal,           //
+                hsm::any / detail::error_action<invalid_number, self_t>() = error),
             string_start_cont(                                       //
                 escape / mem_add_ch        = string_start_cont_esc,  //
                 quot / emit_str_first_last = array_object,           //
@@ -311,14 +331,14 @@ struct basic_json_parser
             string_n_cont_esc(                          //
                 hsm::any / mem_add_ch = string_n_cont,  //
                 eoi / emit_str_n      = string_n_esc),
-            member(                                                          //
-                hsm::initial = expect_quot,                                  //
-                expect_quot(                                                 //
-                    whitespace                             = hsm::internal,  //
-                    eoi                                    = hsm::internal,
-                    quot / mem_start_str                   = name_start_cont,  //
-                    br_close[object_on_stack] / pop_object = array_object,     //
-                    hsm::any / error_action(member_exp)    = error),
+            member(                                                                         //
+                hsm::initial = expect_quot,                                                 //
+                expect_quot(                                                                //
+                    whitespace                                            = hsm::internal,  //
+                    eoi                                                   = hsm::internal,
+                    quot / mem_start_str                                  = name_start_cont,  //
+                    br_close[object_on_stack] / pop_object                = array_object,     //
+                    hsm::any / detail::error_action<member_exp, self_t>() = error),
                 name_start_cont(                                        //
                     hsm::any / mem_add_ch       = name_start_cont,      //
                     escape / mem_add_ch         = name_start_cont_esc,  //
@@ -339,16 +359,16 @@ struct basic_json_parser
                 name_n_cont_esc(                          //
                     hsm::any / mem_add_ch = name_n_cont,  //
                     eoi / emit_name_n     = name_n_esc)),
-            expect_colon(                                            //
-                whitespace                         = expect_colon,   //
-                colon                              = json_state,     //
-                eoi                                = hsm::internal,  //
-                hsm::any / error_action(colon_exp) = error),
-            keyword(                                                                              //
-                eoi                                                             = hsm::internal,  //
-                hsm::any[kw_consume] / kw_consume_char                          = keyword,
-                hsm::any[kw_complete] / kw_complete_keyword                     = array_object,  //
-                hsm::any[kw_wrong_char] / error_action(wrong_keyword_character) = error          //
+            expect_colon(                                                              //
+                whitespace                                           = expect_colon,   //
+                colon                                                = json_state,     //
+                eoi                                                  = hsm::internal,  //
+                hsm::any / detail::error_action<colon_exp, self_t>() = error),
+            keyword(                                                                                                //
+                eoi                                                                               = hsm::internal,  //
+                hsm::any[kw_consume] / kw_consume_char                                            = keyword,
+                hsm::any[kw_complete] / kw_complete_keyword                                       = array_object,  //
+                hsm::any[kw_wrong_char] / detail::error_action<wrong_keyword_character, self_t>() = error          //
                 ),
             array_object(                                   //
                 hsm::initial[stack_empty] = done,           //
@@ -360,21 +380,21 @@ struct basic_json_parser
                     hsm::initial[array_on_stack]  = json_state  //
                     ),
                 br_close = array_object_br_close,
-                array_object_br_close(                                                          //
-                    hsm::initial[no_object_on_stack] / error_action(mismatched_brace) = error,  //
-                    hsm::initial[object_on_stack] / pop_object                        = array_object),
+                array_object_br_close(                                                                            //
+                    hsm::initial[no_object_on_stack] / detail::error_action<mismatched_brace, self_t>() = error,  //
+                    hsm::initial[object_on_stack] / pop_object                                          = array_object),
                 idx_close = array_object_idx_close,
-                array_object_idx_close(                                                        //
-                    hsm::initial[no_array_on_stack] / error_action(mismatched_array) = error,  //
-                    hsm::initial[array_on_stack] / pop_array                         = array_object),
-                hsm::any / error_action(comma_expected) = error  //
+                array_object_idx_close(                                                                          //
+                    hsm::initial[no_array_on_stack] / detail::error_action<mismatched_array, self_t>() = error,  //
+                    hsm::initial[array_on_stack] / pop_array                                           = array_object),
+                hsm::any / detail::error_action<comma_expected, self_t>() = error  //
                 ));
-        sm.start();
-        process_events = [this, sm = std::move(sm)](sv_t const& bytes, int ctrl) mutable {
-            if (ctrl < 0) sm.start();
-            current_input_buffer = bytes;
+        sm.start(*this);
+        process_events = [sm = std::move(sm)](sv_t const& bytes, int ctrl, self_t& self) mutable {
+            if (ctrl < 0) sm.start(self);
+            self.current_input_buffer = bytes;
 #ifdef ASYNC_JSON_PARSER_DEBUG
-            auto to_state_name   = [](int d) -> char const* {
+            auto to_state_name = [](int d) -> char const* {
                 char const* fpp[] = {"root",
                                      "done",
                                      "error",
@@ -407,21 +427,21 @@ struct basic_json_parser
                 return fpp[d];
             };
 #endif
-            auto switch_char = [&sm](char c) mutable {
+            auto switch_char = [&sm](char c, self_t& s) mutable {
                 switch (c)
                 {
-                    case 'n': return sm.process_event(n);
-                    case 't': return sm.process_event(t);
-                    case 'f': return sm.process_event(f);
-                    case '{': return sm.process_event(br_open);
-                    case '}': return sm.process_event(br_close);
-                    case '[': return sm.process_event(idx_open);
-                    case ']': return sm.process_event(idx_close);
-                    case '"': return sm.process_event(quot);
-                    case ':': return sm.process_event(colon);
-                    case ',': return sm.process_event(comma);
-                    case '+': return sm.process_event(plus);
-                    case '-': return sm.process_event(minus);
+                    case 'n': return sm.process_event(n, s);
+                    case 't': return sm.process_event(t, s);
+                    case 'f': return sm.process_event(f, s);
+                    case '{': return sm.process_event(br_open, s);
+                    case '}': return sm.process_event(br_close, s);
+                    case '[': return sm.process_event(idx_open, s);
+                    case ']': return sm.process_event(idx_close, s);
+                    case '"': return sm.process_event(quot, s);
+                    case ':': return sm.process_event(colon, s);
+                    case ',': return sm.process_event(comma, s);
+                    case '+': return sm.process_event(plus, s);
+                    case '-': return sm.process_event(minus, s);
                     case '0': /* fall-through */
                     case '1':
                     case '2':
@@ -431,17 +451,17 @@ struct basic_json_parser
                     case '6':
                     case '7':
                     case '8':
-                    case '9': return sm.process_event(digit);
-                    case '\\': return sm.process_event(escape);
+                    case '9': return sm.process_event(digit, s);
+                    case '\\': return sm.process_event(escape, s);
                     case 'E':
-                    case 'e': return sm.process_event(exponent);
-                    case '.': return sm.process_event(dot);
+                    case 'e': return sm.process_event(exponent, s);
+                    case '.': return sm.process_event(dot, s);
                     case ' ':
                     case '\b':
                     case '\t':
                     case '\r':
-                    case '\n': return sm.process_event(whitespace);
-                    default: return sm.process_event(ch);
+                    case '\n': return sm.process_event(whitespace, s);
+                    default: return sm.process_event(ch, s);
                 }
             };
             for (auto elem : bytes)
@@ -449,13 +469,13 @@ struct basic_json_parser
 #ifdef ASYNC_JSON_PARSER_DEBUG
                 std::cout << "Parse: '" << cur << "' " << to_state_name(static_cast<int>(sm.current_state_id())) << std::endl;
 #endif
-                cur = elem;
-                switch_char(cur);
+                self.cur = elem;
+                switch_char(self.cur, self);
                 if (sm.current_state_id() == sm.get_state_id(error)) return false;
-                ++byte_count;
-                current_input_buffer = sv_t(current_input_buffer.begin() + 1, current_input_buffer.size() - 1);
+                ++self.byte_count;
+                self.current_input_buffer = sv_t(self.current_input_buffer.begin() + 1, self.current_input_buffer.size() - 1);
             }
-            sm.process_event(eoi);
+            sm.process_event(eoi, self);
             return sm.current_state_id() != sm.get_state_id(error);
         };
     }
@@ -465,7 +485,7 @@ struct basic_json_parser
     basic_json_parser() { setup_sm(); }
 
     Handler* callback_handler() { return &cbs; }
-    bool     parse_bytes(sv_t const& input) { return process_events(input, 0); }
+    bool     parse_bytes(sv_t const& input) { return process_events(input, 0, *this); }
     void     reset()
     {
         state_stack.clear();
@@ -476,8 +496,8 @@ struct basic_json_parser
         int_number  = 0;
         fraction    = 0;
         byte_count  = 0;
-        process_events(sv_t{}, -1);
+        process_events(sv_t{}, -1, *this);
     }
-};
+};  // namespace async_json
 }  // namespace async_json
 #endif

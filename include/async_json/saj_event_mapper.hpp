@@ -26,10 +26,10 @@ constexpr hsm::event<struct object_name_end>    on_end;
 constexpr hsm::event<struct string_value_start> str_start;
 constexpr hsm::event<struct string_value_cont>  str_cont;
 constexpr hsm::event<struct string_value_end>   str_end;
-template <typename... Ts>
+template <typename C, typename... Ts>
 constexpr auto create_saj_state_machine(Ts&&... ts) noexcept
 {
-    return hsm::create_state_machine(n_value, i_value, b_value, f_value, o_start, o_end, a_start, a_end, on_start, on_cont, on_end,
+    return hsm::create_state_machine<C>(n_value, i_value, b_value, f_value, o_start, o_end, a_start, a_end, on_start, on_cont, on_end,
                                      str_start, str_cont, str_end, std::forward<Ts>(ts)...);
 }
 /**
