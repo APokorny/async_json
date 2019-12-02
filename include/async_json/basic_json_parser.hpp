@@ -9,8 +9,6 @@
 #include <cmath>
 #include <hsm/hsm.hpp>
 #include <async_json/default_traits.hpp>
-#include <iostream>
-#define ASYNC_JSON_PARSER_DEBUG
 namespace async_json
 {
 namespace detail
@@ -35,13 +33,12 @@ constexpr hsm::event<struct n_char>          n;
 constexpr hsm::event<struct esc_char>        escape;
 constexpr hsm::event<struct end_of_input>    eoi;
 
-constexpr hsm::state_ref<struct done_s>            done;
-constexpr hsm::state_ref<struct error_s>           error;
-constexpr hsm::state_ref<struct json_s>            json_state;
-constexpr hsm::state_ref<struct json_in_array_s>   json_state_in_array;
-constexpr hsm::state_ref<struct json_in_array_c_s> json_state_in_array_check;
-constexpr hsm::state_ref<struct keyword_s>         keyword;
-constexpr hsm::state_ref<struct member_s>          member;
+constexpr hsm::state_ref<struct done_s>          done;
+constexpr hsm::state_ref<struct error_s>         error;
+constexpr hsm::state_ref<struct json_s>          json_state;
+constexpr hsm::state_ref<struct json_in_array_s> json_state_in_array;
+constexpr hsm::state_ref<struct keyword_s>       keyword;
+constexpr hsm::state_ref<struct member_s>        member;
 
 constexpr hsm::state_ref<struct string_start_cont_s>     string_start_cont;
 constexpr hsm::state_ref<struct string_start_cont_esc_s> string_start_cont_esc;
@@ -269,19 +266,16 @@ struct basic_json_parser
             json_state(                                 //
                 whitespace            = hsm::internal,  //
                 n / setup_null        = keyword,
-                f / setup_false       = keyword,                          //
-                t / setup_true        = keyword,                          //
-                br_open / push_object = member,                           //
-                idx_open / push_array = json_state_in_array,              //
-                quot / mem_start_str  = string_start_cont,                //
-                digit / add_digit_num = int_number_state,                 //
-                minus / negate_num    = int_number_ws,                    //
-                eoi                   = hsm::internal,                    //
-                json_state_in_array(                                      //
-                    idx_close / pop_array = json_state_in_array_check),   //
-                json_state_in_array_check(                                //
-                    hsm::initial[array_on_stack]  = json_state_in_array,  //
-                    hsm::initial[object_on_stack] = member),              //
+                f / setup_false       = keyword,              //
+                t / setup_true        = keyword,              //
+                br_open / push_object = member,               //
+                idx_open / push_array = json_state_in_array,  //
+                quot / mem_start_str  = string_start_cont,    //
+                digit / add_digit_num = int_number_state,     //
+                minus / negate_num    = int_number_ws,        //
+                eoi                   = hsm::internal,        //
+                json_state_in_array(                          //
+                    idx_close / pop_array = array_object),    //
                 hsm::any / detail::error_action<unexpected_character, self_t>() = error),
             int_number_state(                                                                        //
                 int_number_ws(                                                                       //
@@ -408,7 +402,6 @@ struct basic_json_parser
                                      "error",
                                      "json_state",
                                      "json_state_in_array",
-                                     "json_state_in_array_check",
                                      "int_number_state",
                                      "int_number_ws",
                                      "fraction_number",
