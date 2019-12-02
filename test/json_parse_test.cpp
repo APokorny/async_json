@@ -173,6 +173,29 @@ TEST_CASE("Parse named object")
                                                                                         {call_type::object_end}}));
 }
 
+TEST_CASE("Parse empty array")
+{
+    char const                           input_buffer[] = R"( { "blubber": [] } )";
+    a::basic_json_parser<test_handler<>> p;
+    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::object_start},
+                                                                                        {call_type::named_object, 0, "blubber"},
+                                                                                        {call_type::array_start},
+                                                                                        {call_type::array_end},
+                                                                                        {call_type::object_end}}));
+}
+
+TEST_CASE("Error unmatched array close")
+{
+    char const                           input_buffer[] = R"( { "blubber": ] } )";
+    a::basic_json_parser<test_handler<>> p;
+    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{call_type::object_start},
+                                                                                        {call_type::named_object, 0, "blubber"},
+                                                                                        {call_type::parse_error, a::unexpected_character}}));
+}
+
+
 TEST_CASE("Error object members must be named")
 {
     char const                           input_buffer[] = R"( { "blubber": {}, {} } )";
