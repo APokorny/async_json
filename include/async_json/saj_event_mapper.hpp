@@ -52,7 +52,7 @@ struct saj_event_mapper
     void value(bool v) { cast().process_event(event_value = saj_value(saj_event::boolean_value, v)); }
     void value(float_t v) { cast().process_event(event_value = saj_value(saj_event::float_value, v)); }
     void value(integer_t v) { cast().process_event(event_value = saj_value(saj_event::integer_value, v)); }
-    void value(void*) { cast().process_event(event_value); }
+    void value(void*) { cast().process_event(event_value = saj_value()); }
     void value(sv_t const& v)
     {
         cast().process_event(event_value = saj_value(saj_event::string_value_start, v));
