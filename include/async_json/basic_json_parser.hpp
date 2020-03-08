@@ -501,6 +501,6 @@ struct basic_json_parser
         byte_count  = 0;
         process_events(sv_t{}, -1, *this);
     }
-};  // namespace async_json
+};
 }  // namespace async_json
 #endif
