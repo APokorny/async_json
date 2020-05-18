@@ -9,6 +9,7 @@
 
 #include <type_traits>
 #include <algorithm>
+#include <variant>
 #include <async_json/default_traits.hpp>  // error cause
 
 namespace async_json
@@ -60,8 +61,7 @@ struct saj_event_value
     using float_t   = typename Traits::float_t;
 
     saj_event event{saj_event::null_value};
-    // yes this should be a variant - but we are only using ~= C++14 for some time
-    std::aligned_storage_t<std::max(sizeof(sv_t), std::max(sizeof(float_t), std::max(sizeof(error_cause), sizeof(integer_t))))> store{{0}};
+    std::variant<sv_t, bool, float_t, integer_t, error_cause> store;
 
     constexpr saj_event_value()                        = default;
     constexpr saj_event_value(saj_event_value const &) = default;
@@ -69,22 +69,17 @@ struct saj_event_value
     constexpr saj_event_value &operator=(saj_event_value const &) = default;
     constexpr saj_event_value &operator=(saj_event_value &&) = default;
     constexpr explicit saj_event_value(saj_event ev) : event{ev} {}
-    constexpr saj_event_value(saj_event ev, float_t f) : event{ev} { new (&store) float_t(f); }
-    constexpr saj_event_value(saj_event ev, integer_t i) : event{ev} { new (&store) integer_t(i); }
-    constexpr saj_event_value(saj_event ev, bool b) : event{ev} { new (&store) bool(b); }
-    constexpr saj_event_value(saj_event ev, error_cause e) : event{ev} { new (&store) error_cause(e); }
-    constexpr saj_event_value(saj_event ev, sv_t s) : event{ev} { new (&store) sv_t(s); }
+    constexpr saj_event_value(saj_event ev, float_t f) : event{ev}, store(f) {}
+    constexpr saj_event_value(saj_event ev, integer_t i) : event{ev}, store(i) {}
+    constexpr saj_event_value(saj_event ev, bool b) : event{ev}, store(b) {}
+    constexpr saj_event_value(saj_event ev, error_cause e) : event{ev}, store(e) {}
+    constexpr saj_event_value(saj_event ev, sv_t s) : event{ev}, store(s) {}
 
-    template <typename T>
-    constexpr T as() const noexcept
-    {
-        return *reinterpret_cast<T const *>(&store);
-    }
-    constexpr auto as_number() const noexcept { return as<integer_t>(); }
-    constexpr auto as_float_number() const noexcept { return as<float_t>(); }
-    constexpr auto as_string_view() const noexcept { return as<sv_t>(); }
-    constexpr auto as_bool() const noexcept { return as<bool>(); }
-    constexpr auto as_error_cause() const noexcept { return as<error_cause>(); }
+    constexpr auto as_number() const noexcept { return std::get<integer_t>(store); }
+    constexpr auto as_float_number() const noexcept { return std::get<float_t>(store); }
+    constexpr auto as_string_view() const noexcept { return std::get<sv_t>(store); }
+    constexpr auto as_bool() const noexcept { return std::get<bool>(store); }
+    constexpr auto as_error_cause() const noexcept { return std::get<error_cause>(store); }
     constexpr bool is_value() const noexcept
     {
         switch (event)
