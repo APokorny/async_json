@@ -17,7 +17,7 @@ inline unsigned int from_hex(char t) noexcept
     return static_cast<unsigned int>(t - ((t >= '0' && t <= '9') ? '0' : (t >= 'a' && t <= 'f') ? 'a' : 'A'));
 }
 }  // namespace detail
-std::string& json_to_utf8(std::string& str)
+inline std::string& json_to_utf8(std::string& str)
 {
     enum escape_state
     {
@@ -161,13 +161,13 @@ std::string& json_to_utf8(std::string& str)
     return str;
 }
 
-std::string json_to_utf8(std::string const& str)
+inline std::string json_to_utf8(std::string const& str)
 {
     std::string ret{str};
     json_to_utf8(ret);
     return ret;
 }
-std::string json_to_utf8(std::string&& str)
+inline std::string json_to_utf8(std::string&& str)
 {
     json_to_utf8(str);
     return std::move(str);
