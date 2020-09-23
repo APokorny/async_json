@@ -8,6 +8,7 @@
 #define ASYNC_JSON_JSON_EXTRACTOR_HPP_INCLUDED
 
 #include <async_json/basic_json_parser.hpp>
+#include <async_json/is_path.hpp>
 #include <memory>
 #include <type_traits>
 
@@ -15,93 +16,6 @@ namespace async_json
 {
 namespace detail
 {
-template <typename Traits, typename T, typename... Ts>
-struct path : async_json::default_handler<Traits>
-{
-    using integer_t = typename Traits::integer_t;
-    using sv_t      = typename Traits::sv_t;
-    using float_t   = typename Traits::float_t;
-    std::array<sv_t, sizeof...(Ts)> path_elements;
-    size_t                          off_path{0};
-    bool                            on_path{true};
-    size_t                          element{0};
-    size_t                          pos{0};
-    T                               destination;
-    path(T&& dest, Ts&&... ts) : path_elements{{ts...}}, destination{dest} {}
-    template <typename VT>
-    void value(VT const& v)
-    {
-        if (on_path && element == sizeof...(Ts)) destination.value(v);
-    }
-    void string_value_start(sv_t const& v)
-    {
-        if (on_path && element == sizeof...(Ts)) destination.string_value_start(v);
-    }
-    void string_value_cont(sv_t const& v)
-    {
-        if (on_path && element == sizeof...(Ts)) destination.string_value_start(v);
-    }
-    void string_value_end()
-    {
-        if (on_path && element == sizeof...(Ts)) destination.string_value_end();
-    }
-    bool begins_with(sv_t const& str, sv_t const& b)
-    {
-        auto i1 = str.begin();
-        auto e1 = str.end();
-        auto i2 = b.begin();
-        auto e2 = b.end();
-        for (; i1 != e1 && i2 != e2; ++i1, ++i2)
-            if (*i1 != *i2) return false;
-        return i2 == e2;
-    }
-    void named_object(sv_t const& s)
-    {
-        if (off_path == 0 && begins_with(path_elements[element], s) && s.size() == path_elements[element].size())
-        {
-            ++element;
-            pos     = 0;
-            on_path = true;
-        }
-        else
-        {
-            on_path = false;
-        }
-    }
-    void named_object_start(sv_t const& s)
-    {
-        if (off_path == 0 && begins_with(path_elements[element], s))
-            pos += s.size();
-        else
-            on_path = false;
-    }
-    void named_object_cont(sv_t const& s)
-    {
-        if (pos != 0 && begins_with(path_elements[element].substr(pos), s))
-            pos += s.size();
-        else
-            on_path = false;
-    }
-    void named_object_end()
-    {
-        if (pos == path_elements[element].size())
-        {
-            ++element;
-            on_path = true;
-        }
-        pos = 0;
-    }
-    void object_start()
-    {
-        if (!on_path) ++off_path;
-    }
-    void object_end()
-    {
-        if (off_path) --off_path;
-        if (0 == off_path) on_path = true;
-    }
-};
-
 template <typename Traits, typename T, typename EH>
 struct value_handler;
 
@@ -210,92 +124,65 @@ struct value_handler<Traits, std::string, EH> : default_handler<Traits>
 };
 
 template <typename Traits, typename EH, typename... Ts>
-struct extractor
+struct extractor : saj_event_mapper<extractor<Traits, EH, Ts...>, Traits>
 {
     tiny_tuple::tuple<Ts...> data;
     EH                       error_handler;
     constexpr extractor(EH&& eh, Ts&&... ts) noexcept : data{ts...}, error_handler{eh} {}
-
     using sv_t      = typename Traits::sv_t;
     using integer_t = typename Traits::integer_t;
     using float_t   = typename Traits::float_t;
-    void value(void*) {}
-    template <typename T>
-    void value(T const& v)
+    using ev_t      = saj_event_value<Traits>;
+    void process_event(ev_t const& ev)
     {
-        tiny_tuple::foreach (data, [v](auto& i) { i.value(v); });
+        if (ev.event != saj_event::parse_error)
+            tiny_tuple::foreach (data, [&ev](auto& i) { i(ev); });
+        else
+            error_handler(ev.as_error_cause());
     }
-    void string_value_start(sv_t const& s)
-    {
-        tiny_tuple::foreach (data, [&s](auto& i) { i.string_value_start(s); });
-    }
-    void string_value_cont(sv_t const& s)
-    {
-        tiny_tuple::foreach (data, [&s](auto& i) { i.string_value_cont(s); });
-    }
-    void string_value_end()
-    {
-        tiny_tuple::foreach (data, [](auto& i) { i.string_value_end(); });
-    }
-    void named_object(sv_t const& name)
-    {
-        tiny_tuple::foreach (data, [&name](auto& i) { i.named_object(name); });
-    }
-    void named_object_start(sv_t const& name)
-    {
-        tiny_tuple::foreach (data, [&name](auto& i) { i.named_object_start(name); });
-    }
-    void named_object_cont(sv_t const& name)
-    {
-        tiny_tuple::foreach (data, [&name](auto& i) { i.named_object_cont(name); });
-    }
-    void named_object_end()
-    {
-        tiny_tuple::foreach (data, [](auto& i) { i.named_object_end(); });
-    }
-    void object_start()
-    {
-        tiny_tuple::foreach (data, [](auto& i) { i.object_start(); });
-    }
-    void object_end()
-    {
-        tiny_tuple::foreach (data, [](auto& i) { i.object_end(); });
-    }
-    void array_start()
-    {
-        tiny_tuple::foreach (data, [](auto& i) { i.array_start(); });
-    }
-    void array_end()
-    {
-        tiny_tuple::foreach (data, [](auto& i) { i.array_end(); });
-    }
-    void error(error_cause cause) { error_handler(cause); }
 };
 
 }  // namespace detail
 
-template <typename T, typename EH>
-constexpr auto assign(T& dest, EH&& error) noexcept
+template <typename T>
+constexpr auto assign_numeric(T& ref)
 {
-    return detail::value_handler<default_traits, T, EH>(dest, std::forward<EH>(error));
+    return [&ref](auto const& ev) {
+        switch (ev.value_type())
+        {
+            case saj_variant_value::float_number: ref = static_cast<T>(ev.as_float_number()); break;
+            case saj_variant_value::number: ref = static_cast<T>(ev.as_number()); break;
+            case saj_variant_value::boolean: ref = static_cast<T>(ev.as_bool()); break;
+            // case saj_variant_value::string: number_from_sv_t::try_parse(ev.as_string_view(), ref); break;
+            default: break;
+        }
+    };
 }
 
-template <typename Traits, typename T, typename EH>
-constexpr auto assign(T& dest, EH&& error) noexcept
+template <typename T>
+constexpr auto assign_string(T& ref)
 {
-    return detail::value_handler<Traits, T, EH>(dest, std::forward<EH>(error));
+    return [&ref](auto const& ev) {
+        if (ev.event == saj_event::string_value_start) ref.assign(ev.as_string_view().begin(), ev.as_string_view().end());
+        if (ev.event == saj_event::string_value_cont) ref.append(ev.as_string_view().begin(), ev.as_string_view().end());
+    };
 }
 
-template <typename Traits, typename A, typename... Ts>
-constexpr auto path(A&& a, Ts&&... ts) noexcept
+template <typename T>
+constexpr auto assign_name(T& ref)
 {
-    return detail::path<Traits, A, Ts...>(std::forward<A>(a), std::forward<Ts>(ts)...);
+    return [&ref](auto const& ev) {
+        if (ev.event == saj_event::object_name_start) ref.assign(ev.as_string_view().begin(), ev.as_string_view().end);
+        if (ev.event == saj_event::object_name_cont) ref.append(ev.as_string_view().begin(), ev.as_string_view().end);
+    };
 }
 
 template <typename A, typename... Ts>
 constexpr auto path(A&& a, Ts&&... ts) noexcept
 {
-    return detail::path<default_traits, A, Ts...>(std::forward<A>(a), std::forward<Ts>(ts)...);
+    return [path_test = async_json::is_path(detail::path_element(std::forward<Ts>(ts))...), a](auto ev) mutable {
+        if (path_test(ev)) a(ev);
+    };
 }
 
 template <typename EH, typename... Ts>

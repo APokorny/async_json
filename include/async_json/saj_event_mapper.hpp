@@ -44,7 +44,7 @@ struct saj_event_mapper
     using float_t   = typename Traits::float_t;
     using saj_value = saj_event_value<Traits>;
 
-   public:  // a variant might be a nicer solution | needs to wait until C++17 is true for all my platforms
+   public:
     saj_value event_value{saj_event::null_value};
 
     SMC& cast() { return *static_cast<SMC*>(this); }
