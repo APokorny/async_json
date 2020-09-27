@@ -21,11 +21,16 @@ find_package(hsm)
 
 option(async_json_BUILD_TESTS "Build examples and tests" ON)
 add_library(async_json INTERFACE)
+add_library(async_json::async_json ALIAS async_json)
 target_link_libraries(async_json INTERFACE hsm)
 target_include_directories(async_json INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
     $<INSTALL_INTERFACE:include>
     )
-install(TARGETS async_json DESTINATION include)
+install(TARGETS async_json EXPORT async_json-Targets DESTINATION include)
+install(EXPORT async_json-Targets
+    NAMESPACE async_json::
+    DESTINATION lib/cmake/async_json
+    )
 
 if(async_json_BUILD_TESTS)
     add_subdirectory(test)

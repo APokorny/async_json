@@ -32,22 +32,22 @@ inline auto create_on_array_sm()
     auto dec_counter = [](on_array_element& self) { --self.depth_counter; };
     auto inc_counter = [](on_array_element& self) { ++self.depth_counter; };
 
-    auto sm = create_saj_state_machine<cj::on_array_element>(  //
-        a::a_start = handle_values,
-        handle_values(a::o_start                    = count_objects,    //
-                      a::str_start                  = consume_strings,  //
+    auto sm = create_saj_state_machine<on_array_element>(  //
+        a_start = handle_values,
+        handle_values(o_start                       = count_objects,    //
+                      str_start                     = consume_strings,  //
                       hsm::any[is_value] / ret_true = handle_values),   //
         consume_strings(                                                //
-            a::str_cont           = hsm::internal,
-            a::str_end / ret_true = handle_values),        //
-        a::a_end = hsm::root,                              //
-        count_objects(                                     //
-            a::o_end[is_zero] / ret_true = handle_values,  //
-            a::o_end / dec_counter       = count_objects,  //
-            a::o_start / inc_counter     = count_objects,  //
-            a::a_end / dec_counter       = count_objects,  //
-            a::a_start / inc_counter     = count_objects,  //
-            hsm::any                     = count_objects)                      //
+            str_cont           = hsm::internal,
+            str_end / ret_true = handle_values),        //
+        a_end = hsm::root,                              //
+        count_objects(                                  //
+            o_end[is_zero] / ret_true = handle_values,  //
+            o_end / dec_counter       = count_objects,  //
+            o_start / inc_counter     = count_objects,  //
+            a_end / dec_counter       = count_objects,  //
+            a_start / inc_counter     = count_objects,  //
+            hsm::any                  = count_objects)                   //
     );
 
     detail::on_array_element state{false, false, 0};
@@ -59,13 +59,13 @@ inline auto create_on_array_sm()
 template <typename R>
 inline constexpr auto on_array_element(R&& r) noexcept
 {
-    return [oa_sm = detail::create_on_array_sm(), r](auto const& ev) {
+    return [oa_sm = detail::create_on_array_sm(), r](auto const& ev) mutable {
         auto& oa_state                 = tiny_tuple::get<0>(oa_sm);
         auto& sm                       = tiny_tuple::get<1>(oa_sm);
-        on_array_state.event_has_value = ev.has_value();
-        on_array_state.event_ret       = false;
-        sm.process_event(static_cast<decltype(path_store)::event_id>(ev.as_event_id()), on_array_state);
-        if (on_array_state.ret) r(ev);
+        oa_state.event_has_value = ev.has_value();
+        oa_state.event_ret       = false;
+        sm.process_event(static_cast<std::decay_t<decltype(sm)>::event_id>(ev.as_event_id()), oa_state);
+        if (oa_state.event_ret) r(ev);
     };
 };
 
