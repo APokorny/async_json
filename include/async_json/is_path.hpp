@@ -14,7 +14,7 @@ namespace async_json
 {
 namespace detail
 {
-bool begins_with(std::string_view const& str, std::string_view const& b)
+inline bool begins_with(std::string_view const& str, std::string_view const& b)
 {
     auto i1 = str.begin();
     auto e1 = str.end();
@@ -61,9 +61,9 @@ struct is_path
     is_path(Ts&&... ts) : path_elements{ts...}
     {
     }
-    bool at_end() const { return element == path_elements.size(); }
-    int  depth() const { return dislocation; }
-    bool matches_element_begin(std::string_view const& sv)
+    inline bool at_end() const { return element == path_elements.size(); }
+    inline int  depth() const { return dislocation; }
+    inline bool matches_element_begin(std::string_view const& sv)
     {
         if (at_end()) return false;
         auto& pe = path_elements[element];
@@ -75,7 +75,7 @@ struct is_path
         return false;
     }
 
-    bool matches_element_part(std::string_view const& sv)
+    inline bool matches_element_part(std::string_view const& sv)
     {
         if (at_end()) return false;
         auto& pe = path_elements[element];
@@ -88,7 +88,7 @@ struct is_path
         return false;
     }
 
-    bool element_complete()
+    inline bool element_complete()
     {
         if (at_end()) return false;
         auto& pe = path_elements[element];
