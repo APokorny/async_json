@@ -31,6 +31,7 @@ install(EXPORT async_json-Targets
     NAMESPACE async_json::
     DESTINATION lib/cmake/async_json
     )
+install(DIRECTORY include/async_json DESTINATION include)
 
 if(async_json_BUILD_TESTS)
     add_subdirectory(test)
