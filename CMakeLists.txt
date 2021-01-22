@@ -26,6 +26,7 @@ target_link_libraries(async_json INTERFACE hsm)
 target_include_directories(async_json INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
     $<INSTALL_INTERFACE:include>
     )
+install(DIRECTORY include/async_json DESTINATION include)
 
 if(async_json_BUILD_TESTS)
     add_subdirectory(test)
