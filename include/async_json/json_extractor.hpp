@@ -10,6 +10,7 @@
 #include <async_json/basic_json_parser.hpp>
 #include <async_json/is_path.hpp>
 #include <memory>
+#include <vector>
 #include <type_traits>
 
 namespace async_json
@@ -145,9 +146,28 @@ struct extractor : saj_event_mapper<extractor<Traits, EH, Ts...>, Traits>
 }  // namespace detail
 
 template <typename T>
-constexpr auto assign_numeric(T& ref)
+struct is_container
 {
-    return [&ref](auto const& ev) {
+    constexpr static bool value = false;
+};
+template <typename... Ts>
+struct is_container<std::vector<Ts...>>
+{
+    constexpr static bool value = true;
+};
+
+template <typename... Ts>
+inline constexpr auto all(Ts&&... ts) noexcept
+{
+    return [funs = tiny_tuple::tuple<std::decay_t<Ts>...>(std::forward<Ts>(ts)...)](auto const& ev) mutable
+    { tiny_tuple::foreach (funs, [&](auto& item) { item(ev); }); };
+}
+
+template <typename T>
+constexpr auto assign_numeric(T& ref, std::enable_if_t<!is_container<T>::value>* = nullptr)
+{
+    return [&ref](auto const& ev)
+    {
         switch (ev.value_type())
         {
             case saj_variant_value::float_number: ref = static_cast<T>(ev.as_float_number()); break;
@@ -160,18 +180,46 @@ constexpr auto assign_numeric(T& ref)
 }
 
 template <typename T>
-constexpr auto assign_string(T& ref)
+constexpr auto assign_numeric(T& ref, std::enable_if_t<is_container<T>::value>* = nullptr)
 {
-    return [&ref](auto const& ev) {
+    return [&ref](auto const& ev)
+    {
+        switch (ev.value_type())
+        {
+            case saj_variant_value::float_number: ref.push_back(static_cast<typename T::value_type>(ev.as_float_number())); break;
+            case saj_variant_value::number: ref.push_back(static_cast<typename T::value_type>(ev.as_number())); break;
+            case saj_variant_value::boolean: ref.push_back(static_cast<typename T::value_type>(ev.as_bool())); break;
+            // case saj_variant_value::string: number_from_sv_t::try_parse(ev.as_string_view(), ref); break;
+            default: break;
+        }
+    };
+}
+
+template <typename T>
+constexpr auto assign_string(T& ref, std::enable_if_t<!is_container<T>::value>* = nullptr)
+{
+    return [&ref](auto const& ev)
+    {
         if (ev.event == saj_event::string_value_start) ref.assign(ev.as_string_view().begin(), ev.as_string_view().end());
         if (ev.event == saj_event::string_value_cont) ref.append(ev.as_string_view().begin(), ev.as_string_view().end());
     };
 }
 
 template <typename T>
+constexpr auto assign_string(T& ref, std::enable_if_t<is_container<T>::value>* = nullptr)
+{
+    return [&ref](auto const& ev)
+    {
+        if (ev.event == saj_event::string_value_start) ref.push_back(T::value_type(ev.as_string_view().begin(), ev.as_string_view().end()));
+        if (ev.event == saj_event::string_value_cont) ref.back().append(ev.as_string_view().begin(), ev.as_string_view().end());
+    };
+}
+
+template <typename T>
 constexpr auto assign_name(T& ref)
 {
-    return [&ref](auto const& ev) {
+    return [&ref](auto const& ev)
+    {
         if (ev.event == saj_event::object_name_start) ref.assign(ev.as_string_view().begin(), ev.as_string_view().end);
         if (ev.event == saj_event::object_name_cont) ref.append(ev.as_string_view().begin(), ev.as_string_view().end);
     };
@@ -180,7 +228,8 @@ constexpr auto assign_name(T& ref)
 template <typename A, typename... Ts>
 constexpr auto path(A&& a, Ts&&... ts) noexcept
 {
-    return [path_test = async_json::is_path(detail::path_element(std::forward<Ts>(ts))...), a](auto ev) mutable {
+    return [path_test = async_json::is_path(detail::path_element(std::forward<Ts>(ts))...), a](auto ev) mutable
+    {
         if (path_test(ev)) a(ev);
     };
 }
