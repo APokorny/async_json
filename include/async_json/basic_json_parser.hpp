@@ -303,7 +303,7 @@ struct basic_json_parser
                 digit / add_digit_exp = hsm::internal,                                          //
                 exp_sign_state(                                                                 //
                     minus / negate_exp                                        = exp_state,      //
-                    plus / negate_exp                                         = exp_state,      //
+                    plus                                                      = exp_state,      //
                     digit / add_digit_exp                                     = exp_state,      //
                     eoi                                                       = hsm::internal,  //
                     hsm::any / detail::error_action<invalid_number, self_t>() = error),
