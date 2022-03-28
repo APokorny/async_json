@@ -253,9 +253,12 @@ struct basic_json_parser
         auto object_on_stack    = [](self_t& self) { return self.state_stack.size() && self.state_stack.back() == 0; };
         auto no_array_on_stack  = [](self_t& self) { return self.state_stack.size() == 0 || self.state_stack.back() != 1; };
         auto array_on_stack     = [](self_t& self) { return self.state_stack.size() && self.state_stack.back() == 1; };
-        auto mem_start_str      = [](self_t& self) { self.parsed_view = sv_t(self.current_input_buffer.begin() + 1, 0); };
         auto mem_n_str          = [](self_t& self) { self.parsed_view = sv_t(self.current_input_buffer.begin(), 1); };
-        auto mem_add_ch         = [](self_t& self) { self.parsed_view = sv_t(self.parsed_view.begin(), self.parsed_view.size() + 1); };
+        auto mem_add_ch         = [](self_t& self) {
+            self.parsed_view =
+                sv_t(self.parsed_view.empty() ? self.current_input_buffer.begin() : self.parsed_view.begin(), self.parsed_view.size() + 1);
+        };
+        auto is_empty = [](self_t& self) { return self.parsed_view.empty(); };
 
         using namespace async_json::detail;
         auto sm = hsm::create_state_machine<self_t>(  //
@@ -270,7 +273,7 @@ struct basic_json_parser
                 t / setup_true        = keyword,              //
                 br_open / push_object = member,               //
                 idx_open / push_array = json_state_in_array,  //
-                quot / mem_start_str  = string_start_cont,    //
+                quot                  = string_start_cont,    //
                 digit / add_digit_num = int_number_state,     //
                 minus / negate_num    = int_number_ws,        //
                 eoi                   = hsm::internal,        //
@@ -303,7 +306,7 @@ struct basic_json_parser
                 digit / add_digit_exp = hsm::internal,                                          //
                 exp_sign_state(                                                                 //
                     minus / negate_exp                                        = exp_state,      //
-                    plus                                                      = exp_state,      //
+                    plus / negate_exp                                         = exp_state,      //
                     digit / add_digit_exp                                     = exp_state,      //
                     eoi                                                       = hsm::internal,  //
                     hsm::any / detail::error_action<invalid_number, self_t>() = error),
@@ -316,10 +319,12 @@ struct basic_json_parser
             string_start_cont(                                       //
                 escape / mem_add_ch        = string_start_cont_esc,  //
                 quot / emit_str_first_last = array_object,           //
+                eoi[is_empty]              = hsm::internal,          //
                 eoi / emit_str_first       = string_n,               //
                 hsm::any / mem_add_ch      = string_start_cont),          //
             string_start_cont_esc(                                   //
                 hsm::any / mem_add_ch = string_start_cont,           //
+                eoi[is_empty]         = hsm::internal,               //
                 eoi / emit_str_first  = string_n_esc),
             string_n(quot / emit_str_n_last = array_object,          //
                      escape / mem_n_str     = string_n_cont_esc,     //
@@ -329,25 +334,29 @@ struct basic_json_parser
                 hsm::any / mem_add_ch  = string_n_cont,              //
                 escape / mem_add_ch    = string_n_cont_esc,          //
                 quot / emit_str_n_last = array_object,               //
+                eoi[is_empty]          = hsm::internal,              //
                 eoi / emit_str_n       = string_n),
             string_n_cont_esc(                          //
                 hsm::any / mem_add_ch = string_n_cont,  //
+                eoi[is_empty]         = hsm::internal,  //
                 eoi / emit_str_n      = string_n_esc),
             member(                                                                         //
                 hsm::initial = expect_quot,                                                 //
                 expect_quot(                                                                //
                     whitespace                                            = hsm::internal,  //
                     eoi                                                   = hsm::internal,
-                    quot / mem_start_str                                  = name_start_cont,  //
+                    quot                                                  = name_start_cont,  //
                     br_close[object_on_stack] / pop_object                = array_object,     //
                     hsm::any / detail::error_action<member_exp, self_t>() = error),
                 name_start_cont(                                        //
                     hsm::any / mem_add_ch       = name_start_cont,      //
                     escape / mem_add_ch         = name_start_cont_esc,  //
                     quot / emit_name_first_last = expect_colon,         //
+                    eoi[is_empty]               = hsm::internal,        //
                     eoi / emit_name_first       = name_n),                    //
                 name_start_cont_esc(                                    //
                     hsm::any / mem_add_ch = name_start_cont,            //
+                    eoi[is_empty]         = hsm::internal,              //
                     eoi / emit_name_first = name_n_esc),
                 name_n(quot / emit_name_n_last = expect_colon,       //
                        escape / mem_n_str      = name_n_cont_esc,    //
@@ -357,9 +366,11 @@ struct basic_json_parser
                     hsm::any / mem_add_ch   = name_n_cont,           //
                     escape / mem_add_ch     = name_n_cont_esc,       //
                     quot / emit_name_n_last = expect_colon,          //
+                    eoi[is_empty]           = hsm::internal,         //
                     eoi / emit_name_n       = name_n),
-                name_n_cont_esc(                          //
-                    hsm::any / mem_add_ch = name_n_cont,  //
+                name_n_cont_esc(                            //
+                    hsm::any / mem_add_ch = name_n_cont,    //
+                    eoi[is_empty]         = hsm::internal,  //
                     eoi / emit_name_n     = name_n_esc)),
             expect_colon(                                                              //
                 whitespace                                           = expect_colon,   //
