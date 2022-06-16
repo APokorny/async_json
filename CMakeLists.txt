@@ -9,7 +9,7 @@ CPMAddPackage(NAME hsm
   VERSION 0.2.0
   GITHUB_REPOSITORY "APokorny/hsm"
   GIT_TAG development)
-CPMAddPackage("gh:TheLartians/PackageProject.cmake@1.6.0")
+CPMAddPackage("gh:TheLartians/PackageProject.cmake@1.9.0")
 
 option(async_json_BUILD_TESTS "Build examples and tests" ON)
 add_library(async_json INTERFACE)
