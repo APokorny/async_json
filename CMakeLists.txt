@@ -5,10 +5,7 @@ cmake_minimum_required(VERSION 3.14)
 project(async_json VERSION 0.2.0 LANGUAGES CXX)
 
 include(cmake/CPM.cmake)
-CPMAddPackage(NAME hsm
-  VERSION 0.2.0
-  GITHUB_REPOSITORY "APokorny/hsm"
-  GIT_TAG development)
+CPMAddPackage("gh:APokorny/hsm#0ce6aace8d81e86b4c1be9ddfcf72f0549e54095")
 CPMAddPackage("gh:TheLartians/PackageProject.cmake@1.9.0")
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
@@ -30,7 +27,7 @@ packageProject(
   BINARY_DIR ${PROJECT_BINARY_DIR}
   INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include
   INCLUDE_DESTINATION include/${PROJECT_NAME}-${PROJECT_VERSION}
-  DEPENDENCIES "tiny_tuple 0.1.0"
+  DEPENDENCIES "hsm 0.1.0"
   VERSION_HEADER "${PROJECT_NAME}/version.h"
   EXPORT_HEADER "${PROJECT_NAME}/export.h"
   NAMESPACE hsm
