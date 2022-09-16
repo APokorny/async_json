@@ -4,7 +4,7 @@
 #include <vector>
 #include <functional>
 #include <async_json/saj_event_mapper.hpp>
-#include "catch.hpp"
+#include <catch2/catch.hpp>
 
 namespace a = async_json;
 

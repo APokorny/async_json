@@ -4,7 +4,7 @@
 #include <vector>
 #include <functional>
 #include <async_json/json_extractor.hpp>
-#include "catch.hpp"
+#include <catch2/catch.hpp>
 
 namespace a = async_json;
 TEST_CASE("JSON Extractor: string value 1")

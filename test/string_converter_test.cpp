@@ -2,7 +2,7 @@
 #include <vector>
 #include <functional>
 #include <async_json/string_converter.hpp>
-#include "catch.hpp"
+#include <catch2/catch.hpp>
 
 namespace a = async_json;
 

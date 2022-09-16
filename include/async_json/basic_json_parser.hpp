@@ -139,7 +139,7 @@ struct basic_json_parser
         exp_number  = 0;
         exp_sign    = 1;
         return ret;
-    };
+    }
 
     integer_t get_number()
     {
@@ -147,7 +147,7 @@ struct basic_json_parser
         int_number    = 0;
         num_sign      = 1;
         return ret;
-    };
+    }
     float_t get_fraction()
     {
         float_t ret = num_sign * (static_cast<integer_t>(int_number) +
@@ -157,7 +157,7 @@ struct basic_json_parser
         fraction    = 0;
         frac_digits = 0;
         return ret;
-    };
+    }
     void setup_sm()
     {
         using namespace hsm::literals;

@@ -3,7 +3,7 @@
 #include <iomanip>
 #include <vector>
 #include <async_json/basic_json_parser.hpp>
-#include "catch.hpp"
+#include <catch2/catch.hpp>
 
 namespace a = async_json;
 enum class call_type
