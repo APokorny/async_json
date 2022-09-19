@@ -155,7 +155,9 @@ inline std::string& json_to_utf8(std::string& str)
                     es        = none;
                 }
                 break;
-            default: break;
+            case hex_done:
+            default:
+                break;
         }
     }
     return str;
