@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.14)
 project(async_json VERSION 0.2.0 LANGUAGES CXX)
 
 include(cmake/CPM.cmake)
-CPMAddPackage("gh:APokorny/hsm#0ce6aace8d81e86b4c1be9ddfcf72f0549e54095")
+CPMAddPackage("gh:APokorny/hsm#48920b09ff970418aa48723865fe97a7568b49b2") 
 CPMAddPackage("gh:TheLartians/PackageProject.cmake@1.9.0")
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
