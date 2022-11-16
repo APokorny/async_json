@@ -22,14 +22,14 @@ constexpr auto on_exit(C&& c) noexcept
             if (ev.event == async_json::saj_event::object_start)
                 ++amplitude;
             else if (ev.event == async_json::saj_event::object_end)
-                if (--amplitude == 0) c(ev);
+                if (--amplitude == 0) c();
         }
         if (amplitude <= 0)
         {
             if (ev.event == async_json::saj_event::array_start)
                 --amplitude;
             else if (ev.event == async_json::saj_event::array_end)
-                if (++amplitude == 0) c(ev);
+                if (++amplitude == 0) c();
         }
     };
 }

@@ -15,7 +15,7 @@ constexpr auto on_enter(C &&c) noexcept
     return [amplitude = -1, c](auto const& ev) mutable
     {
         if (amplitude == -1 && (ev.event == async_json::saj_event::object_start || ev.event == async_json::saj_event::array_start))
-            c(ev);
+            c();
         if (ev.event == async_json::saj_event::object_start || ev.event == async_json::saj_event::array_start)
             ++amplitude;
         else if (ev.event == async_json::saj_event::object_end || ev.event == async_json::saj_event::array_end)
