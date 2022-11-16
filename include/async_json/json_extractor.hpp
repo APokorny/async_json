@@ -12,6 +12,7 @@
 #include <async_json/basic_on_array_element.hpp>
 #include <memory>
 #include <vector>
+#include <variant>
 #include <type_traits>
 
 namespace async_json
@@ -133,6 +134,18 @@ constexpr auto assign_string(T& ref, std::enable_if_t<!is_container<T>::value>* 
         if (ev.event == saj_event::string_value_cont) ref.append(ev.as_string_view().begin(), ev.as_string_view().end());
     };
 }
+
+template <typename... Ts>
+constexpr auto assign_string(std::variant<Ts...>& ref)
+{
+    return [&ref](auto const& ev)
+    {
+        if (ev.event == saj_event::string_value_start) ref = std::string(ev.as_string_view().begin(), ev.as_string_view().end());
+        if (ev.event == saj_event::string_value_cont) std::get<std::string>(ref).append(ev.as_string_view().begin(), ev.as_string_view().end());
+    };
+}
+
+
 
 template <typename T>
 constexpr auto assign_string(T& ref, std::enable_if_t<is_container<T>::value>* = nullptr)
