@@ -68,7 +68,7 @@ extern template class basic_json_parser<std::function<void(async_json::saj_event
 
 }  // namespace async_json
 
-#ifndef ASYNC_JSON_NO_INLINE_IMPL
+#ifndef ASYNC_JSON_EXTERN
 #include <async_json/detail/basic_json_parser.ipp>
 #endif
 #endif

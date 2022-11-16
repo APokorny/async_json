@@ -72,7 +72,7 @@ extern template class basic_is_path<default_traits>;
 #endif
 }  // namespace async_json
 
-#ifndef ASYNC_JSON_NO_INLINE_IMPL
+#ifndef ASYNC_JSON_EXTERN
 #include <async_json/detail/basic_is_path.ipp>
 #endif
 #endif
