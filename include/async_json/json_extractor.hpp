@@ -65,9 +65,9 @@ constexpr auto assign_numeric(T& ref, std::enable_if_t<!is_container<T>::value>*
     {
         switch (ev.value_type())
         {
-            case saj_variant_value::float_number: ref = static_cast<T>(ev.as_float_number()); break;
-            case saj_variant_value::number: ref = static_cast<T>(ev.as_number()); break;
-            case saj_variant_value::boolean: ref = static_cast<T>(ev.as_bool()); break;
+            case saj_variant_value::float_number: ref = ev.as_float_number(); break;
+            case saj_variant_value::number: ref = ev.as_number(); break;
+            case saj_variant_value::boolean: ref =ev.as_bool(); break;
             // case saj_variant_value::string: number_from_sv_t::try_parse(ev.as_string_view(), ref); break;
             default: break;
         }
@@ -82,9 +82,9 @@ constexpr auto assign_numeric(F&& fun, std::enable_if_t<!is_container<std::decay
         using dest = std::decay_t<decltype(fun())>;
         switch (ev.value_type())
         {
-            case saj_variant_value::float_number: fun() = static_cast<dest>(ev.as_float_number()); break;
-            case saj_variant_value::number: fun() = static_cast<dest>(ev.as_number()); break;
-            case saj_variant_value::boolean: fun() = static_cast<dest>(ev.as_bool()); break;
+            case saj_variant_value::float_number: fun() = ev.as_float_number(); break;
+            case saj_variant_value::number: fun() = ev.as_number(); break;
+            case saj_variant_value::boolean: fun() = ev.as_bool(); break;
             // case saj_variant_value::string: number_from_sv_t::try_parse(ev.as_string_view(), ref); break;
             default: break;
         }
@@ -98,9 +98,9 @@ constexpr auto assign_numeric(T& ref, std::enable_if_t<is_container<T>::value>* 
     {
         switch (ev.value_type())
         {
-            case saj_variant_value::float_number: ref.push_back(static_cast<typename T::value_type>(ev.as_float_number())); break;
-            case saj_variant_value::number: ref.push_back(static_cast<typename T::value_type>(ev.as_number())); break;
-            case saj_variant_value::boolean: ref.push_back(static_cast<typename T::value_type>(ev.as_bool())); break;
+            case saj_variant_value::float_number: ref.push_back(ev.as_float_number()); break;
+            case saj_variant_value::number: ref.push_back(ev.as_number()); break;
+            case saj_variant_value::boolean: ref.push_back(ev.as_bool()); break;
             // case saj_variant_value::string: number_from_sv_t::try_parse(ev.as_string_view(), ref); break;
             default: break;
         }
@@ -115,9 +115,9 @@ constexpr auto assign_numeric(F&& fun, std::enable_if_t<is_container<std::decay_
         using value_type = typename std::decay_t<decltype(fun())>::value_type;
         switch (ev.value_type())
         {
-            case saj_variant_value::float_number: fun().push_back(static_cast<value_type>(ev.as_float_number())); break;
-            case saj_variant_value::number: fun().push_back(static_cast<value_type>(ev.as_number())); break;
-            case saj_variant_value::boolean: fun().push_back(static_cast<value_type>(ev.as_bool())); break;
+            case saj_variant_value::float_number: fun().push_back(ev.as_float_number()); break;
+            case saj_variant_value::number: fun().push_back(ev.as_number()); break;
+            case saj_variant_value::boolean: fun().push_back(ev.as_bool()); break;
             // case saj_variant_value::string: number_from_sv_t::try_parse(ev.as_string_view(), ref); break;
             default: break;
         }
