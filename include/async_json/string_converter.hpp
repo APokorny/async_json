@@ -11,10 +11,10 @@ namespace async_json
 {
 namespace detail
 {
-inline bool         is_hex(char t) noexcept { return (t >= '0' && t <= '9') || (t >= 'a' && t <= 'f') || (t >= 'A' && t <= 'F'); }
-inline unsigned int from_hex(char t) noexcept
+inline bool         is_hex(char c) noexcept { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'); }
+inline unsigned int from_hex(char c) noexcept
 {
-    return static_cast<unsigned int>(t - ((t >= '0' && t <= '9') ? '0' : (t >= 'a' && t <= 'f') ? 'a' : 'A'));
+    return static_cast<unsigned int>(c - ((c >= '0' && c <= '9') ? '0' : (c >= 'a' && c <= 'f') ? 'a' : 'A'));
 }
 }  // namespace detail
 inline std::string& json_to_utf8(std::string& str)
