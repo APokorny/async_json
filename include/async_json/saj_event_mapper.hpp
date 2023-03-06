@@ -9,6 +9,7 @@
 
 #include <async_json/basic_json_parser.hpp>
 #include <async_json/saj_event_value.hpp>
+#include <hsm/unroll_sm.hpp>
 
 namespace async_json
 {
@@ -29,7 +30,13 @@ constexpr hsm::event<struct string_value_end>   str_end;
 template <typename C, typename... Ts>
 constexpr auto create_saj_state_machine(Ts&&... ts) noexcept
 {
-    return hsm::create_state_machine<C>(n_value, i_value, b_value, f_value, o_start, o_end, a_start, a_end, on_start, on_cont, on_end,
+    return 
+#ifdef ASYNC_JSON_EXTRACTOR_UNROLLED_SM
+        hsm::create_unrolled_sm<C>(
+#else
+        hsm::create_state_machine<C>(
+#endif
+            n_value, i_value, b_value, f_value, o_start, o_end, a_start, a_end, on_start, on_cont, on_end,
                                      str_start, str_cont, str_end, std::forward<Ts>(ts)...);
 }
 

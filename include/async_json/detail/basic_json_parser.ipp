@@ -217,147 +217,152 @@ auto basic_json_parser<Handler, Traits>::setup_sm() -> void
     auto is_empty = [](self_t& self) { return self.parsed_view.empty(); };
 
     using namespace async_json::detail;
-    auto sm = hsm::create_state_machine<self_t>(  //
-        ch,                                       // catch all event
-        done,
-        error,                                      //
-        hsm::initial = json_state,                  //
-        json_state(                                 //
-            whitespace            = hsm::internal,  //
-            n / setup_null        = keyword,
-            f / setup_false       = keyword,              //
-            t / setup_true        = keyword,              //
-            br_open / push_object = member,               //
-            idx_open / push_array = json_state_in_array,  //
-            quot                  = string_start_cont,    //
-            digit / add_digit_num = int_number_state,     //
-            minus / negate_num    = int_number_ws,        //
-            eoi                   = hsm::internal,        //
-            json_state_in_array(                          //
-                idx_close / pop_array = array_object),    //
-            hsm::any / detail::error_action<unexpected_character, self_t>() = error),
-        int_number_state(                                                                        //
-            int_number_ws(                                                                       //
-                whitespace            = hsm::internal,                                           //
-                digit / add_digit_num = int_number_state),                                       //
-            digit / add_digit_num                                     = hsm::internal,           //
-            dot                                                       = fraction_number,         //
-            exponent                                                  = exp_sign_state,          //
-            comma / emit_number                                       = array_object_comma,      //
-            br_close / emit_number                                    = array_object_br_close,   //
-            idx_close / emit_number                                   = array_object_idx_close,  //
-            whitespace / emit_number                                  = array_object,            //
-            eoi                                                       = hsm::internal,           //
-            hsm::any / detail::error_action<invalid_number, self_t>() = error),
-        fraction_number(                                                                         //
-            digit / add_digit_fraction                                = hsm::internal,           //
-            exponent                                                  = exp_sign_state,          //
-            comma / emit_fraction                                     = array_object_comma,      //
-            br_close / emit_fraction                                  = array_object_br_close,   //
-            idx_close / emit_fraction                                 = array_object_idx_close,  //
-            whitespace / emit_fraction                                = array_object,            //
-            eoi                                                       = hsm::internal,           //
-            hsm::any / detail::error_action<invalid_number, self_t>() = error),
-        exp_state(                                                                          //
-            digit / add_digit_exp = hsm::internal,                                          //
-            exp_sign_state(                                                                 //
-                minus / negate_exp                                        = exp_state,      //
-                plus / negate_exp                                         = exp_state,      //
-                digit / add_digit_exp                                     = exp_state,      //
-                eoi                                                       = hsm::internal,  //
+    auto sm =
+#ifdef ASYNC_JSON_PARSER_UNROLLED_SM
+        hsm::create_unrolled_sm<self_t>(  //
+#else
+        hsm::create_state_machine<self_t>(  //
+#endif
+            ch,  // catch all event
+            done,
+            error,                                      //
+            hsm::initial = json_state,                  //
+            json_state(                                 //
+                whitespace            = hsm::internal,  //
+                n / setup_null        = keyword,
+                f / setup_false       = keyword,              //
+                t / setup_true        = keyword,              //
+                br_open / push_object = member,               //
+                idx_open / push_array = json_state_in_array,  //
+                quot                  = string_start_cont,    //
+                digit / add_digit_num = int_number_state,     //
+                minus / negate_num    = int_number_ws,        //
+                eoi                   = hsm::internal,        //
+                json_state_in_array(                          //
+                    idx_close / pop_array = array_object),    //
+                hsm::any / detail::error_action<unexpected_character, self_t>() = error),
+            int_number_state(                                                                        //
+                int_number_ws(                                                                       //
+                    whitespace            = hsm::internal,                                           //
+                    digit / add_digit_num = int_number_state),                                       //
+                digit / add_digit_num                                     = hsm::internal,           //
+                dot                                                       = fraction_number,         //
+                exponent                                                  = exp_sign_state,          //
+                comma / emit_number                                       = array_object_comma,      //
+                br_close / emit_number                                    = array_object_br_close,   //
+                idx_close / emit_number                                   = array_object_idx_close,  //
+                whitespace / emit_number                                  = array_object,            //
+                eoi                                                       = hsm::internal,           //
                 hsm::any / detail::error_action<invalid_number, self_t>() = error),
-            comma / emit_exp_fraction                                 = array_object_comma,      //
-            br_close / emit_exp_fraction                              = array_object_br_close,   //
-            idx_close / emit_exp_fraction                             = array_object_idx_close,  //
-            whitespace / emit_exp_fraction                            = array_object,            //
-            eoi                                                       = hsm::internal,           //
-            hsm::any / detail::error_action<invalid_number, self_t>() = error),
-        string_start_cont(                                       //
-            escape / mem_add_ch        = string_start_cont_esc,  //
-            quot / emit_str_first_last = array_object,           //
-            eoi[is_empty]              = hsm::internal,          //
-            eoi / emit_str_first       = string_n,               //
-            hsm::any / mem_add_ch      = string_start_cont),          //
-        string_start_cont_esc(                                   //
-            hsm::any / mem_add_ch = string_start_cont,           //
-            eoi[is_empty]         = hsm::internal,               //
-            eoi / emit_str_first  = string_n_esc),
-        string_n(quot / emit_str_n_last = array_object,          //
-                 escape / mem_n_str     = string_n_cont_esc,     //
-                 hsm::any / mem_n_str   = string_n_cont),          //
-        string_n_esc(hsm::any / mem_n_str = string_n_cont_esc),  //
-        string_n_cont(                                           //
-            hsm::any / mem_add_ch  = string_n_cont,              //
-            escape / mem_add_ch    = string_n_cont_esc,          //
-            quot / emit_str_n_last = array_object,               //
-            eoi[is_empty]          = hsm::internal,              //
-            eoi / emit_str_n       = string_n),
-        string_n_cont_esc(                          //
-            hsm::any / mem_add_ch = string_n_cont,  //
-            eoi[is_empty]         = hsm::internal,  //
-            eoi / emit_str_n      = string_n_esc),
-        member(                                                                         //
-            hsm::initial = expect_quot,                                                 //
-            expect_quot(                                                                //
-                whitespace                                            = hsm::internal,  //
-                eoi                                                   = hsm::internal,
-                quot                                                  = name_start_cont,  //
-                br_close[object_on_stack] / pop_object                = array_object,     //
-                hsm::any / detail::error_action<member_exp, self_t>() = error),
-            name_start_cont(                                        //
-                hsm::any / mem_add_ch       = name_start_cont,      //
-                escape / mem_add_ch         = name_start_cont_esc,  //
-                quot / emit_name_first_last = expect_colon,         //
-                eoi[is_empty]               = hsm::internal,        //
-                eoi / emit_name_first       = name_n),                    //
-            name_start_cont_esc(                                    //
-                hsm::any / mem_add_ch = name_start_cont,            //
-                eoi[is_empty]         = hsm::internal,              //
-                eoi / emit_name_first = name_n_esc),
-            name_n(quot / emit_name_n_last = expect_colon,       //
-                   escape / mem_n_str      = name_n_cont_esc,    //
-                   hsm::any / mem_n_str    = name_n_cont),          //
-            name_n_esc(hsm::any / mem_n_str = name_n_cont_esc),  //
-            name_n_cont(                                         //
-                hsm::any / mem_add_ch   = name_n_cont,           //
-                escape / mem_add_ch     = name_n_cont_esc,       //
-                quot / emit_name_n_last = expect_colon,          //
-                eoi[is_empty]           = hsm::internal,         //
-                eoi / emit_name_n       = name_n),
-            name_n_cont_esc(                            //
-                hsm::any / mem_add_ch = name_n_cont,    //
+            fraction_number(                                                                         //
+                digit / add_digit_fraction                                = hsm::internal,           //
+                exponent                                                  = exp_sign_state,          //
+                comma / emit_fraction                                     = array_object_comma,      //
+                br_close / emit_fraction                                  = array_object_br_close,   //
+                idx_close / emit_fraction                                 = array_object_idx_close,  //
+                whitespace / emit_fraction                                = array_object,            //
+                eoi                                                       = hsm::internal,           //
+                hsm::any / detail::error_action<invalid_number, self_t>() = error),
+            exp_state(                                                                          //
+                digit / add_digit_exp = hsm::internal,                                          //
+                exp_sign_state(                                                                 //
+                    minus / negate_exp                                        = exp_state,      //
+                    plus / negate_exp                                         = exp_state,      //
+                    digit / add_digit_exp                                     = exp_state,      //
+                    eoi                                                       = hsm::internal,  //
+                    hsm::any / detail::error_action<invalid_number, self_t>() = error),
+                comma / emit_exp_fraction                                 = array_object_comma,      //
+                br_close / emit_exp_fraction                              = array_object_br_close,   //
+                idx_close / emit_exp_fraction                             = array_object_idx_close,  //
+                whitespace / emit_exp_fraction                            = array_object,            //
+                eoi                                                       = hsm::internal,           //
+                hsm::any / detail::error_action<invalid_number, self_t>() = error),
+            string_start_cont(                                       //
+                escape / mem_add_ch        = string_start_cont_esc,  //
+                quot / emit_str_first_last = array_object,           //
+                eoi[is_empty]              = hsm::internal,          //
+                eoi / emit_str_first       = string_n,               //
+                hsm::any / mem_add_ch      = string_start_cont),          //
+            string_start_cont_esc(                                   //
+                hsm::any / mem_add_ch = string_start_cont,           //
+                eoi[is_empty]         = hsm::internal,               //
+                eoi / emit_str_first  = string_n_esc),
+            string_n(quot / emit_str_n_last = array_object,          //
+                     escape / mem_n_str     = string_n_cont_esc,     //
+                     hsm::any / mem_n_str   = string_n_cont),          //
+            string_n_esc(hsm::any / mem_n_str = string_n_cont_esc),  //
+            string_n_cont(                                           //
+                hsm::any / mem_add_ch  = string_n_cont,              //
+                escape / mem_add_ch    = string_n_cont_esc,          //
+                quot / emit_str_n_last = array_object,               //
+                eoi[is_empty]          = hsm::internal,              //
+                eoi / emit_str_n       = string_n),
+            string_n_cont_esc(                          //
+                hsm::any / mem_add_ch = string_n_cont,  //
                 eoi[is_empty]         = hsm::internal,  //
-                eoi / emit_name_n     = name_n_esc)),
-        expect_colon(                                                              //
-            whitespace                                           = expect_colon,   //
-            colon                                                = json_state,     //
-            eoi                                                  = hsm::internal,  //
-            hsm::any / detail::error_action<colon_exp, self_t>() = error),
-        keyword(                                                                                                //
-            eoi                                                                               = hsm::internal,  //
-            hsm::any[kw_consume] / kw_consume_char                                            = keyword,
-            hsm::any[kw_complete] / kw_complete_keyword                                       = array_object,  //
-            hsm::any[kw_wrong_char] / detail::error_action<wrong_keyword_character, self_t>() = error          //
-            ),
-        array_object(                                   //
-            hsm::initial[stack_empty] = done,           //
-            whitespace                = hsm::internal,  //
-            eoi                       = hsm::internal,  //
-            comma                     = array_object_comma,
-            array_object_comma(                             //
-                hsm::initial[object_on_stack] = member,     //
-                hsm::initial[array_on_stack]  = json_state  //
+                eoi / emit_str_n      = string_n_esc),
+            member(                                                                         //
+                hsm::initial = expect_quot,                                                 //
+                expect_quot(                                                                //
+                    whitespace                                            = hsm::internal,  //
+                    eoi                                                   = hsm::internal,
+                    quot                                                  = name_start_cont,  //
+                    br_close[object_on_stack] / pop_object                = array_object,     //
+                    hsm::any / detail::error_action<member_exp, self_t>() = error),
+                name_start_cont(                                        //
+                    hsm::any / mem_add_ch       = name_start_cont,      //
+                    escape / mem_add_ch         = name_start_cont_esc,  //
+                    quot / emit_name_first_last = expect_colon,         //
+                    eoi[is_empty]               = hsm::internal,        //
+                    eoi / emit_name_first       = name_n),                    //
+                name_start_cont_esc(                                    //
+                    hsm::any / mem_add_ch = name_start_cont,            //
+                    eoi[is_empty]         = hsm::internal,              //
+                    eoi / emit_name_first = name_n_esc),
+                name_n(quot / emit_name_n_last = expect_colon,       //
+                       escape / mem_n_str      = name_n_cont_esc,    //
+                       hsm::any / mem_n_str    = name_n_cont),          //
+                name_n_esc(hsm::any / mem_n_str = name_n_cont_esc),  //
+                name_n_cont(                                         //
+                    hsm::any / mem_add_ch   = name_n_cont,           //
+                    escape / mem_add_ch     = name_n_cont_esc,       //
+                    quot / emit_name_n_last = expect_colon,          //
+                    eoi[is_empty]           = hsm::internal,         //
+                    eoi / emit_name_n       = name_n),
+                name_n_cont_esc(                            //
+                    hsm::any / mem_add_ch = name_n_cont,    //
+                    eoi[is_empty]         = hsm::internal,  //
+                    eoi / emit_name_n     = name_n_esc)),
+            expect_colon(                                                              //
+                whitespace                                           = expect_colon,   //
+                colon                                                = json_state,     //
+                eoi                                                  = hsm::internal,  //
+                hsm::any / detail::error_action<colon_exp, self_t>() = error),
+            keyword(                                                                                                //
+                eoi                                                                               = hsm::internal,  //
+                hsm::any[kw_consume] / kw_consume_char                                            = keyword,
+                hsm::any[kw_complete] / kw_complete_keyword                                       = array_object,  //
+                hsm::any[kw_wrong_char] / detail::error_action<wrong_keyword_character, self_t>() = error          //
                 ),
-            br_close = array_object_br_close,
-            array_object_br_close(                                                                            //
-                hsm::initial[no_object_on_stack] / detail::error_action<mismatched_brace, self_t>() = error,  //
-                hsm::initial[object_on_stack] / pop_object                                          = array_object),
-            idx_close = array_object_idx_close,
-            array_object_idx_close(                                                                          //
-                hsm::initial[no_array_on_stack] / detail::error_action<mismatched_array, self_t>() = error,  //
-                hsm::initial[array_on_stack] / pop_array                                           = array_object),
-            hsm::any / detail::error_action<comma_expected, self_t>() = error  //
-            ));
+            array_object(                                   //
+                hsm::initial[stack_empty] = done,           //
+                whitespace                = hsm::internal,  //
+                eoi                       = hsm::internal,  //
+                comma                     = array_object_comma,
+                array_object_comma(                             //
+                    hsm::initial[object_on_stack] = member,     //
+                    hsm::initial[array_on_stack]  = json_state  //
+                    ),
+                br_close = array_object_br_close,
+                array_object_br_close(                                                                            //
+                    hsm::initial[no_object_on_stack] / detail::error_action<mismatched_brace, self_t>() = error,  //
+                    hsm::initial[object_on_stack] / pop_object                                          = array_object),
+                idx_close = array_object_idx_close,
+                array_object_idx_close(                                                                          //
+                    hsm::initial[no_array_on_stack] / detail::error_action<mismatched_array, self_t>() = error,  //
+                    hsm::initial[array_on_stack] / pop_array                                           = array_object),
+                hsm::any / detail::error_action<comma_expected, self_t>() = error  //
+                ));
     sm.start(*this);
     process_events = [sm = std::move(sm)](sv_t const& bytes, int ctrl, self_t& self) mutable
     {
@@ -442,8 +447,7 @@ auto basic_json_parser<Handler, Traits>::setup_sm() -> void
             self.cur = elem;
 #ifdef ASYNC_JSON_PARSER_DEBUG
             std::cout << &self << "Parse: '" << self.cur << "' " << to_state_name(static_cast<int>(sm.current_state_id())) << " ";
-            for( auto const & entry : self.state_stack)
-                std::cout << int(entry) << " ";
+            for (auto const& entry : self.state_stack) std::cout << int(entry) << " ";
             std::cout << "\n";
 #endif
             switch_char(self.cur, self);

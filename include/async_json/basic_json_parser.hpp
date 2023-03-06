@@ -8,6 +8,7 @@
 #define ASYNC_JSON_BASIC_JSON_PARSER_HPP_INCLUDED
 #include <cmath>
 #include <hsm/hsm.hpp>
+#include <hsm/unroll_sm.hpp>
 #include <async_json/default_traits.hpp>
 #include <async_json/saj_event_value.hpp>
 namespace async_json
