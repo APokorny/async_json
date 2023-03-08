@@ -18,6 +18,18 @@ TEST_CASE("JSON Extractor: string value 1")
     REQUIRE_THAT(foo, Catch::Matchers::Equals("baz"));
 }
 
+TEST_CASE("JSON Extractor[fast]: string value 1")
+{
+    constexpr char val[] = R"({ "var" : {"blub": "baz"}}  )";
+
+    std::string foo;
+    auto        extractor = a::make_fast_extractor([](a::error_cause er) { std::cout << "ERROR" << static_cast<int>(er) << " \n"; },
+                                       a::fast_path(a::assign_string(foo), "var", "blub"));
+    extractor.parse_bytes(std::string_view(val, sizeof(val)));
+    REQUIRE_THAT(foo, Catch::Matchers::Equals("baz"));
+}
+
+
 TEST_CASE("JSON Extractor: string value 2")
 {
     constexpr char val[] = R"({ "var" : {"other": 12, "blub": "baz"}}  )";
@@ -94,6 +106,17 @@ TEST_CASE("JSON Path: arbitrary")
 {
     constexpr char val[]     = R"({"bar":{"foo": 31}} )";
     long           foo       = 13;
+    auto           extractor = a::make_extractor([](a::error_cause er) { std::cout << "ERROR" << static_cast<int>(er) << " \n"; },
+                                       a::path(a::assign_numeric(foo), "bar", a::arbitrary));
+    extractor.parse_bytes(std::string_view(val, sizeof(val)));
+    REQUIRE(foo == 31);
+}
+
+TEST_CASE("JSON on_exit: called once")
+{
+    constexpr char val[]     = R"({"bar":{"foo": 31}} )";
+    long           foo       = 13;
+    bool called = false;
     auto           extractor = a::make_extractor([](a::error_cause er) { std::cout << "ERROR" << static_cast<int>(er) << " \n"; },
                                        a::path(a::assign_numeric(foo), "bar", a::arbitrary));
     extractor.parse_bytes(std::string_view(val, sizeof(val)));

@@ -13,8 +13,10 @@
 #include <async_json/saj_event_value.hpp>
 namespace async_json
 {
+struct unrolled_tag;
+struct table_tag;
 
-template <typename Handler = std::function<void(saj_event_value<default_traits> const&)>, typename Traits = default_traits>
+template <typename Handler = std::function<void(saj_event_value<default_traits> const&)>, typename Traits = default_traits, typename InterpreterTag = table_tag>
 struct basic_json_parser
 {
     using float_t   = typename Traits::float_t;
@@ -64,7 +66,7 @@ struct basic_json_parser
 };
 
 #if defined(ASYNC_JSON_EXTERN) && !defined(ASYNC_JSON_EXPAND)
-extern template class basic_json_parser<std::function<void(async_json::saj_event_value<async_json::default_traits> const& )>, default_traits>;
+extern template class basic_json_parser<std::function<void(async_json::saj_event_value<async_json::default_traits> const& )>, default_traits, table_tag>;
 #endif
 
 }  // namespace async_json

@@ -5,15 +5,17 @@ cmake_minimum_required(VERSION 3.14)
 project(async_json VERSION 0.3.0 LANGUAGES CXX)
 
 include(cmake/CPM.cmake)
-CPMAddPackage("gh:APokorny/hsm@0.3.1")
+CPMAddPackage("gh:APokorny/hsm@0.3.2")
 CPMAddPackage("gh:TheLartians/PackageProject.cmake@1.9.0")
 
 option(async_json_PARSER_UNROLLED_SM "Build parser with unrolled state machine interpreter" OFF)
 option(async_json_EXTRACTOR_UNROLLED_SM "Build secondary state machines with unrolled state machine interpreter" OFF)
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   option(async_json_BUILD_TESTS "Build examples and tests" ON)
+  option(async_json_BUILD_BENCHMARK "Build benchmarks" ON)
 else()
   option(async_json_BUILD_TESTS "Build examples and tests" OFF)
+  option(async_json_BUILD_BENCHMARK "Build benchmarks" OFF)
 endif()
 add_library(async_json INTERFACE)
 add_library(async_json::async_json ALIAS async_json)
@@ -43,6 +45,9 @@ packageProject(
   ARCH_INDEPENDENT YES
   )
 
+if(async_json_BUILD_BENCHMARK)
+  add_subdirectory(bench)
+endif()
 if(async_json_BUILD_TESTS)
   CPMAddPackage("gh:catchorg/Catch2@2.13.7")
   enable_testing()

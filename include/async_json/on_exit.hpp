@@ -4,7 +4,6 @@
  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 ========================================================================== */
 
-
 #ifndef ASYNC_JSON_ON_EXIT_HPP_INCLUDED
 #define ASYNC_JSON_ON_EXIT_HPP_INCLUDED
 #include <async_json/saj_event_value.hpp>

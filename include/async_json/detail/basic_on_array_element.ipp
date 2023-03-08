@@ -14,17 +14,17 @@ constexpr hsm::state_ref<struct handle_values_s>   handle_values;
 constexpr hsm::state_ref<struct count_objects_s>   count_objects;
 constexpr hsm::state_ref<struct consume_strings_s> consume_strings;
 
-template <typename Traits>
-inline void basic_on_array_element<Traits>::setup_sm()
+template <typename Traits, typename IT>
+inline void basic_on_array_element<Traits, IT>::setup_sm()
 {
-    using self_t     = basic_on_array_element<Traits>;
+    using self_t     = basic_on_array_element<Traits, IT>;
     auto is_value    = [](self_t& self) { return self.event_has_value; };
     auto is_zero     = [](self_t& self) { return self.depth_counter == 0; };
     auto ret_true    = [](self_t& self) { self.event_ret = true; };
     auto dec_counter = [](self_t& self) { --self.depth_counter; };
     auto inc_counter = [](self_t& self) { ++self.depth_counter; };
 
-    auto sm = create_saj_state_machine<self_t>(  //
+    auto sm = create_saj_state_machine<self_t, IT>(  //
         a_start = handle_values,
         handle_values(o_start                       = count_objects,    //
                       str_start                     = consume_strings,  //
@@ -55,8 +55,8 @@ inline void basic_on_array_element<Traits>::setup_sm()
     };
 }
 
-template <typename Traits>
-void basic_on_array_element<Traits>::operator()(event_value const& ev)
+template <typename Traits, typename IT>
+void basic_on_array_element<Traits, IT>::operator()(event_value const& ev)
 {
     if (ev_handler(this, ev)) callback();
 }

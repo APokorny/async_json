@@ -12,7 +12,9 @@
 
 namespace async_json
 {
-template <typename Traits>
+struct table_tag;
+struct unrolled_tag;
+template <typename Traits, typename InterpreterTag = async_json::table_tag>
 struct basic_on_array_element
 {
     using event_value = async_json::saj_event_value<Traits>;
