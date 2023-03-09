@@ -6,6 +6,7 @@
 
 #ifndef ASYNC_JSON_DETAIL_BASIC_JSON_PARSER_IPP_INCLUDED
 #define ASYNC_JSON_DETAIL_BASIC_JSON_PARSER_IPP_INCLUDED
+// #define ASYNC_JSON_PARSER_DEBUG
 namespace async_json
 {
 namespace detail

@@ -145,11 +145,11 @@ NONIUS_BENCHMARK("parse_with_unrolled",
                      using namespace async_json;
                      auto parser =
                          make_fast_extractor([](auto error) { std::cerr << "It failed\n"; },
-                                             fast_path([](auto const&) { std::cerr << "token recevied\n"; }, "nextPageToken"),  //
+                                             fast_path([](auto const&) {  }, "nextPageToken"),  //
                                              fast_path(                                                                         //
                                                  all(                                                                           //
                                                      fast_path([](auto const&) {}, "etag"),                                     //
-                                                     fast_path([](auto const&) { std::cerr << "found\n"; }, "id", "channelId")  // a
+                                                     fast_path([](auto const&) { }, "id", "channelId")  // a
                                                      ),
                                                  "result", "items")  //
                          );

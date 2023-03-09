@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.14)
 project(async_json VERSION 0.3.0 LANGUAGES CXX)
 
 include(cmake/CPM.cmake)
-CPMAddPackage("gh:APokorny/hsm@0.3.2")
+CPMAddPackage("gh:APokorny/hsm@0.3.3")
 CPMAddPackage("gh:TheLartians/PackageProject.cmake@1.9.0")
 
 option(async_json_PARSER_UNROLLED_SM "Build parser with unrolled state machine interpreter" OFF)
@@ -37,7 +37,7 @@ packageProject(
   BINARY_DIR ${PROJECT_BINARY_DIR}
   INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include
   INCLUDE_DESTINATION include/${PROJECT_NAME}-${PROJECT_VERSION}
-  DEPENDENCIES "hsm 0.2.0"
+  DEPENDENCIES "hsm 0.3.3"
   VERSION_HEADER "${PROJECT_NAME}/version.h"
   NAMESPACE async_json
   COMPATIBILITY AnyNewerVersion

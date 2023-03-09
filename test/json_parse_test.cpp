@@ -108,284 +108,425 @@ struct test_handler
 
 TEST_CASE("Detect keywords: null")
 {
-    char const                           input_buffer[] = "   null   ";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::null_value, 0}}));
+    auto run_test = [](auto&& p)
+    {
+        char const input_buffer[] = "   null   ";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::null_value, 0}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Detect keywords: true")
 {
-    char const                           input_buffer[] = "   true ";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::boolean_value, 1}}));
+    auto run_test = [](auto&& p)
+    {
+        char const input_buffer[] = "   true ";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::boolean_value, 1}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Detect keywords: false")
 {
-    char const                           input_buffer[] = " false ";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::boolean_value, 0}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = " false ";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::boolean_value, 0}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Error in keyword: false")
 {
-    char const                           input_buffer[] = " fase ";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls,
-                 Catch::Matchers::Equals(std::vector<call>{{a::saj_event::parse_error, a::wrong_keyword_character}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = " fase ";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls,
+                     Catch::Matchers::Equals(std::vector<call>{{a::saj_event::parse_error, a::wrong_keyword_character}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 TEST_CASE("parse empty object")
 {
-    char const                           input_buffer[] = R"( {} )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls,
-                 Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start}, {a::saj_event::object_end}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( {} )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls,
+                     Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start}, {a::saj_event::object_end}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 TEST_CASE("Error: object expects member name")
 {
-    char const                           input_buffer[] = R"( { [ }] )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls,
-                 Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start}, {a::saj_event::parse_error, a::member_exp}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( { [ }] )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls,
+                     Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start}, {a::saj_event::parse_error, a::member_exp}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Parse named object")
 {
-    char const                           input_buffer[] = R"( { "blubber": {} } )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
-                                                                                        {a::saj_event::object_name_start, 0, "blubber"},
-                                                                                        {a::saj_event::object_start},
-                                                                                        {a::saj_event::object_end},
-                                                                                        {a::saj_event::object_end}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( { "blubber": {} } )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
+                                                                                            {a::saj_event::object_name_start, 0, "blubber"},
+                                                                                            {a::saj_event::object_start},
+                                                                                            {a::saj_event::object_end},
+                                                                                            {a::saj_event::object_end}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Parse empty array")
 {
-    char const                           input_buffer[] = R"( { "blubber": [] } )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
-                                                                                        {a::saj_event::object_name_start, 0, "blubber"},
-                                                                                        {a::saj_event::array_start},
-                                                                                        {a::saj_event::array_end},
-                                                                                        {a::saj_event::object_end}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( { "blubber": [] } )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
+                                                                                            {a::saj_event::object_name_start, 0, "blubber"},
+                                                                                            {a::saj_event::array_start},
+                                                                                            {a::saj_event::array_end},
+                                                                                            {a::saj_event::object_end}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Error unmatched array close")
 {
-    char const                           input_buffer[] = R"( { "blubber": ] } )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(
-        p.callback_handler()->calls,
-        Catch::Matchers::Equals(std::vector<call>{
-            {a::saj_event::object_start}, {a::saj_event::object_name_start, 0, "blubber"}, {a::saj_event::parse_error, a::unexpected_character}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( { "blubber": ] } )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls,
+                     Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
+                                                               {a::saj_event::object_name_start, 0, "blubber"},
+                                                               {a::saj_event::parse_error, a::unexpected_character}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Error object members must be named")
 {
-    char const                           input_buffer[] = R"( { "blubber": {}, {} } )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
-                                                                                        {a::saj_event::object_name_start, 0, "blubber"},
-                                                                                        {a::saj_event::object_start},
-                                                                                        {a::saj_event::object_end},
-                                                                                        {a::saj_event::parse_error, a::member_exp}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( { "blubber": {}, {} } )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
+                                                                                            {a::saj_event::object_name_start, 0, "blubber"},
+                                                                                            {a::saj_event::object_start},
+                                                                                            {a::saj_event::object_end},
+                                                                                            {a::saj_event::parse_error, a::member_exp}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("String values")
 {
-    char const                           input_buffer[] = R"( { "mmm1": "wert", "mem2": "wert3"} )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
-                                                                                        {a::saj_event::object_name_start, 0, "mmm1"},
-                                                                                        {a::saj_event::string_value_start, 0, "wert"},
-                                                                                        {a::saj_event::object_name_start, 0, "mem2"},
-                                                                                        {a::saj_event::string_value_start, 0, "wert3"},
-                                                                                        {a::saj_event::object_end}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( { "mmm1": "wert", "mem2": "wert3"} )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
+                                                                                            {a::saj_event::object_name_start, 0, "mmm1"},
+                                                                                            {a::saj_event::string_value_start, 0, "wert"},
+                                                                                            {a::saj_event::object_name_start, 0, "mem2"},
+                                                                                            {a::saj_event::string_value_start, 0, "wert3"},
+                                                                                            {a::saj_event::object_end}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Array : strings")
 {
-    char const                           input_buffer[] = R"( [ "m", "w", "m", "w"] )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::array_start},
-                                                                                        {a::saj_event::string_value_start, 0, "m"},
-                                                                                        {a::saj_event::string_value_start, 0, "w"},
-                                                                                        {a::saj_event::string_value_start, 0, "m"},
-                                                                                        {a::saj_event::string_value_start, 0, "w"},
-                                                                                        {a::saj_event::array_end}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( [ "m", "w", "m", "w"] )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::array_start},
+                                                                                            {a::saj_event::string_value_start, 0, "m"},
+                                                                                            {a::saj_event::string_value_start, 0, "w"},
+                                                                                            {a::saj_event::string_value_start, 0, "m"},
+                                                                                            {a::saj_event::string_value_start, 0, "w"},
+                                                                                            {a::saj_event::array_end}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
+
 TEST_CASE("Array : error: comma seperation")
 {
-    char const                           input_buffer[] = R"( [ "m", "w", "m" "w"] )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::array_start},
-                                                                                        {a::saj_event::string_value_start, 0, "m"},
-                                                                                        {a::saj_event::string_value_start, 0, "w"},
-                                                                                        {a::saj_event::string_value_start, 0, "m"},
-                                                                                        {a::saj_event::parse_error, a::comma_expected}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( [ "m", "w", "m" "w"] )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls,
+                     Catch::Matchers::Equals(std::vector<call>{{a::saj_event::array_start},
+                                                               {a::saj_event::string_value_start, 0, "m"},
+                                                               {a::saj_event::string_value_start, 0, "w"},
+                                                               {a::saj_event::string_value_start, 0, "m"},
+                                                               {a::saj_event::parse_error, a::comma_expected}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Number: integer number")
 {
-    char const             input_buffer[] = R"( 901 )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::integer_value, 901}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( 901 )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::integer_value, 901}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Number: negative integer number")
 {
-    char const             input_buffer[] = R"( -21901 )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::integer_value, -21901}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( -21901 )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::integer_value, -21901}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Number: double number")
 {
-    char const             input_buffer[] = R"( 908.231 )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::float_value, 0, "", 908.231}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( 908.231 )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::float_value, 0, "", 908.231}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Number: negative double number")
 {
-    char const             input_buffer[] = R"( -0.1231231927 )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls,
-                 Catch::Matchers::Equals(std::vector<call>{{a::saj_event::float_value, 0, "", -0.1231231927}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( -0.1231231927 )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls,
+                     Catch::Matchers::Equals(std::vector<call>{{a::saj_event::float_value, 0, "", -0.1231231927}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Number: exponent number")
 {
-    char const             input_buffer[] = R"( 1.2e-3 )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::float_value, 0, "", 1.2E-3}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( 1.2e-3 )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::float_value, 0, "", 1.2E-3}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Number: Exponent number")
 {
-    char const             input_buffer[] = R"( 1.2E-3 )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::float_value, 0, "", 1.2E-3}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( 1.2E-3 )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::float_value, 0, "", 1.2E-3}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Number: float number")
 {
-    char const                                             input_buffer[] = R"( 4721.32 )";
-    a::basic_json_parser<test_handler<sp_float>, sp_float> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::float_value, 0, "", 4721.32f}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                                             input_buffer[] = R"( 4721.32 )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::float_value, 0, "", 4721.32f}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<sp_float>, sp_float>{});
+    run_test(a::basic_json_parser<test_handler<sp_float>, sp_float, a::unrolled_tag>{});
 }
 
 TEST_CASE("Array : integers")
 {
-    char const                           input_buffer[] = R"( [ 1, 3, -123, 12] )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::array_start},
-                                                                                        {a::saj_event::integer_value, 1},
-                                                                                        {a::saj_event::integer_value, 3},
-                                                                                        {a::saj_event::integer_value, -123},
-                                                                                        {a::saj_event::integer_value, 12},
-                                                                                        {a::saj_event::array_end}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( [ 1, 3, -123, 12] )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::array_start},
+                                                                                            {a::saj_event::integer_value, 1},
+                                                                                            {a::saj_event::integer_value, 3},
+                                                                                            {a::saj_event::integer_value, -123},
+                                                                                            {a::saj_event::integer_value, 12},
+                                                                                            {a::saj_event::array_end}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("Array : doubles")
 {
-    char const                           input_buffer[] = R"( [ 1E-4, 12.4, -1.23, 12] )";
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::array_start},
-                                                                                        {a::saj_event::float_value, 0, "", 1E-4},
-                                                                                        {a::saj_event::float_value, 0, "", 12.4},
-                                                                                        {a::saj_event::float_value, 0, "", -1.23},
-                                                                                        {a::saj_event::integer_value, 12},
-                                                                                        {a::saj_event::array_end}}));
+    auto run_test = [](auto&& p)
+    {
+        char const                           input_buffer[] = R"( [ 1E-4, 12.4, -1.23, 12] )";
+        p.parse_bytes(std::string_view(input_buffer, sizeof(input_buffer)));
+        REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::array_start},
+                                                                                            {a::saj_event::float_value, 0, "", 1E-4},
+                                                                                            {a::saj_event::float_value, 0, "", 12.4},
+                                                                                            {a::saj_event::float_value, 0, "", -1.23},
+                                                                                            {a::saj_event::integer_value, 12},
+                                                                                            {a::saj_event::array_end}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("partial input on text value")
 {
-    using namespace std::literals;
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(R"( { "blubber": "long te)"sv);
-    p.parse_bytes(R"(xt string"}  )"sv);
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
-                                                                                        {a::saj_event::object_name_start, 0, "blubber"},
-                                                                                        {a::saj_event::string_value_start, 0, "long text string"},
-                                                                                        {a::saj_event::object_end}}));
+    auto run_test = [](auto&& p)
+    {
+        using namespace std::literals;
+        p.parse_bytes(R"( { "blubber": "long te)"sv);
+        p.parse_bytes(R"(xt string"}  )"sv);
+        REQUIRE_THAT(p.callback_handler()->calls,
+                     Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
+                                                               {a::saj_event::object_name_start, 0, "blubber"},
+                                                               {a::saj_event::string_value_start, 0, "long text string"},
+                                                               {a::saj_event::object_end}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("partial input on text value 2")
 {
-    using namespace std::literals;
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(R"( { "blubber": "long text string)"sv);
-    p.parse_bytes(R"("}  )"sv);
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
-                                                                                        {a::saj_event::object_name_start, 0, "blubber"},
-                                                                                        {a::saj_event::string_value_start, 0, "long text string"},
-                                                                                        {a::saj_event::object_end}}));
+    auto run_test = [](auto&& p)
+    {
+        using namespace std::literals;
+        p.parse_bytes(R"( { "blubber": "long text string)"sv);
+        p.parse_bytes(R"("}  )"sv);
+        REQUIRE_THAT(p.callback_handler()->calls,
+                     Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
+                                                               {a::saj_event::object_name_start, 0, "blubber"},
+                                                               {a::saj_event::string_value_start, 0, "long text string"},
+                                                               {a::saj_event::object_end}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("partial input on text value 3")
 {
-    using namespace std::literals;
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(R"( { "blubber": "long)"sv);
-    p.parse_bytes(R"( text)"sv);
-    p.parse_bytes(R"( string)"sv);
-    p.parse_bytes(R"("  })"sv);
-    REQUIRE_THAT(p.callback_handler()->calls, Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
-                                                                                        {a::saj_event::object_name_start, 0, "blubber"},
-                                                                                        {a::saj_event::string_value_start, 0, "long text string"},
-                                                                                        {a::saj_event::object_end}}));
+    auto run_test = [](auto&& p)
+    {
+        using namespace std::literals;
+        p.parse_bytes(R"( { "blubber": "long)"sv);
+        p.parse_bytes(R"( text)"sv);
+        p.parse_bytes(R"( string)"sv);
+        p.parse_bytes(R"("  })"sv);
+        REQUIRE_THAT(p.callback_handler()->calls,
+                     Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
+                                                               {a::saj_event::object_name_start, 0, "blubber"},
+                                                               {a::saj_event::string_value_start, 0, "long text string"},
+                                                               {a::saj_event::object_end}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("partial input on object name")
 {
-    using namespace std::literals;
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(R"( { "you )"sv);
-    p.parse_bytes(R"(should not)"sv);
-    p.parse_bytes(R"( create overlong object names -)"sv);
-    p.parse_bytes(R"( but even if you do it will )"sv);
-    p.parse_bytes(R"(work": 12  })"sv);
-    REQUIRE_THAT(p.callback_handler()->calls,
-                 Catch::Matchers::Equals(std::vector<call>{
-                     {a::saj_event::object_start},
-                     {a::saj_event::object_name_start, 0, "you should not create overlong object names - but even if you do it will work"},
-                     {a::saj_event::integer_value, 12},
-                     {a::saj_event::object_end}}));
+    auto run_test = [](auto&& p)
+    {
+        using namespace std::literals;
+        p.parse_bytes(R"( { "you )"sv);
+        p.parse_bytes(R"(should not)"sv);
+        p.parse_bytes(R"( create overlong object names -)"sv);
+        p.parse_bytes(R"( but even if you do it will )"sv);
+        p.parse_bytes(R"(work": 12  })"sv);
+        REQUIRE_THAT(
+            p.callback_handler()->calls,
+            Catch::Matchers::Equals(std::vector<call>{
+                {a::saj_event::object_start},
+                {a::saj_event::object_name_start, 0, "you should not create overlong object names - but even if you do it will work"},
+                {a::saj_event::integer_value, 12},
+                {a::saj_event::object_end}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
 TEST_CASE("escape sequences")
 {
-    using namespace std::literals;
-    a::basic_json_parser<test_handler<>> p;
-    p.parse_bytes(R"( { "str": "string with \" inside"})"sv);
-    REQUIRE_THAT(p.callback_handler()->calls,
-                 Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
-                                                           {a::saj_event::object_name_start, 0, "str"},
-                                                           {a::saj_event::string_value_start, 0, R"(string with \" inside)"},
-                                                           {a::saj_event::object_end}}));
+    auto run_test = [](auto&& p)
+    {
+        using namespace std::literals;
+        p.parse_bytes(R"( { "str": "string with \" inside"})"sv);
+        REQUIRE_THAT(p.callback_handler()->calls,
+                     Catch::Matchers::Equals(std::vector<call>{{a::saj_event::object_start},
+                                                               {a::saj_event::object_name_start, 0, "str"},
+                                                               {a::saj_event::string_value_start, 0, R"(string with \" inside)"},
+                                                               {a::saj_event::object_end}}));
+    };
+
+    run_test(a::basic_json_parser<test_handler<>>{});
+    run_test(a::basic_json_parser<test_handler<>, a::default_traits, a::unrolled_tag>{});
 }
 
