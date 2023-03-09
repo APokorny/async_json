@@ -19,39 +19,16 @@ Boost Software License.
 
 ## Dependencies
 
-* optional C++ std features like string_view
+* In theory only c++17, but the dependencies of async_json already require c++20
 * hsm: https://github.com/APokorny/hsm (so transitively kvasir mpl and https://github.com/APokorny/tiny_tuple)
-* Upcoming setup with fetch content will allow you to just:
+* Everything is being setup with CPM:
 ```CMake
-project(async_json_env LANGUAGES CXX)
+project(your_project LANGUAGES CXX)
 cmake_minimum_required(VERSION 3.14)
 cmake_policy(SET CMP0057 NEW)
 cmake_policy(SET CMP0048 NEW)
-include(FetchContent)
-fetchcontent_declare(async_json 
-    GIT_REPOSITORY https://github.com/APokorny/async_json
-    GIT_TAG development)
-fetchcontent_makeavailable(async_json)
+include(cmake/CPM.cmake)
+cpmaddpacakge("gh:APokorny/async_json@0.3.0") 
   ...
 ```
-* previously this was the preferred setup:
 
-```CMake
-project(async_json_env LANGUAGES CXX)
-cmake_minimum_required(VERSION 3.10)
-cmake_policy(SET CMP0057 NEW)
-cmake_policy(SET CMP0048 NEW)
-set(as_subproject
-    kvasir_mpl hsm tiny_tuple)
-
-macro(find_package)
-    if(NOT ${ARGV0} IN_LIST as_subproject)
-        _find_package(${ARGV})
-    endif()
-endmacro()
-
-add_subdirectory(mpl)
-add_subdirectory(tiny-tuple)
-add_subdirectory(hsm)
-add_subdirectory(async_json)
-```

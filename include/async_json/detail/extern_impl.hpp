@@ -15,7 +15,7 @@
 #include <async_json/basic_json_parser.hpp>
 #include <async_json/detail/basic_json_parser.ipp>
 
-template class async_json::basic_is_path<async_json::default_traits>;
-template class async_json::basic_on_array_element<async_json::default_traits>;
-template class async_json::basic_json_parser<std::function<void(async_json::saj_event_value<async_json::default_traits> const&)>, async_json::default_traits>;
+template class async_json::basic_is_path<async_json::default_traits, async_json::table_tag>;
+template class async_json::basic_on_array_element<async_json::default_traits, async_json::table_tag>;
+template class async_json::basic_json_parser<std::function<void(async_json::saj_event_value<async_json::default_traits> const&)>, async_json::default_traits, async_json::table_tag>;
 #endif

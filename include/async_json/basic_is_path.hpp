@@ -14,6 +14,8 @@
 
 namespace async_json
 {
+struct unrolled_tag;
+struct table_tag;
 
 namespace detail
 {
@@ -36,7 +38,7 @@ struct path_element
 };
 
 }  // namespace detail
-template <typename Traits>
+template <typename Traits, typename IT = table_tag>
 struct basic_is_path
 {
     using traits_type = Traits;
@@ -68,7 +70,7 @@ struct basic_is_path
 
 constexpr detail::path_element arbitrary{detail::path_type::arbitrary};
 #if defined(ASYNC_JSON_EXTERN) && !defined(ASYNC_JSON_EXPAND)
-extern template class basic_is_path<default_traits>;
+extern template class basic_is_path<default_traits, table_tag>;
 #endif
 }  // namespace async_json
 

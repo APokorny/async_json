@@ -35,24 +35,24 @@ constexpr hsm::state_ref<struct consume_array_nested_s>  consume_array_nested;
 constexpr hsm::state_ref<struct consume_value_s>         consume_value;
 constexpr hsm::state_ref<struct ds_s>                    ds;
 
-template <typename Traits>
-basic_is_path<Traits>::basic_is_path(std::initializer_list<detail::path_element> elements) : path_elements(elements)
+template <typename Traits, typename IT>
+basic_is_path<Traits, IT>::basic_is_path(std::initializer_list<detail::path_element> elements) : path_elements(elements)
 {
     setup_sm();
 }
-template <typename Traits>
-basic_is_path<Traits>::basic_is_path(basic_is_path const& other) : path_elements{other.path_elements}
+template <typename Traits, typename IT>
+basic_is_path<Traits, IT>::basic_is_path(basic_is_path const& other) : path_elements{other.path_elements}
 {
     setup_sm();
 }
 
-template <typename Traits>
-basic_is_path<Traits>::basic_is_path(basic_is_path&& other) : path_elements{std::move(other.path_elements)}
+template <typename Traits, typename IT>
+basic_is_path<Traits, IT>::basic_is_path(basic_is_path&& other) : path_elements{std::move(other.path_elements)}
 {
     setup_sm();
 }
-template <typename Traits>
-basic_is_path<Traits>& basic_is_path<Traits>::operator=(basic_is_path const& other)
+template <typename Traits, typename IT>
+basic_is_path<Traits, IT>& basic_is_path<Traits, IT>::operator=(basic_is_path const& other)
 {
     path_elements = other.path_elements;
     element       = 0;
@@ -60,8 +60,8 @@ basic_is_path<Traits>& basic_is_path<Traits>::operator=(basic_is_path const& oth
     pos           = 0;
     return *this;
 }
-template <typename Traits>
-basic_is_path<Traits>& basic_is_path<Traits>::operator=(basic_is_path&& other)
+template <typename Traits, typename IT>
+basic_is_path<Traits, IT>& basic_is_path<Traits, IT>::operator=(basic_is_path&& other)
 {
     path_elements = std::move(other.path_elements);
     element       = 0;
@@ -70,15 +70,15 @@ basic_is_path<Traits>& basic_is_path<Traits>::operator=(basic_is_path&& other)
     return *this;
 }
 
-template <typename Traits>
-bool basic_is_path<Traits>::operator()(event_value const& ev)
+template <typename Traits, typename IT>
+bool basic_is_path<Traits, IT>::operator()(event_value const& ev)
 {
     cur = ev;
     return path_handler(ev);
 }
 
-template <typename Traits>
-bool basic_is_path<Traits>::matches_element_begin(std::string_view const& sv) noexcept
+template <typename Traits, typename IT>
+bool basic_is_path<Traits, IT>::matches_element_begin(std::string_view const& sv) noexcept
 {
     if (at_end()) return false;
     auto& pe = path_elements[element];
@@ -89,8 +89,8 @@ bool basic_is_path<Traits>::matches_element_begin(std::string_view const& sv) no
     }
     return false;
 }
-template <typename Traits>
-bool basic_is_path<Traits>::matches_element_part(std::string_view const& sv) noexcept
+template <typename Traits, typename IT>
+bool basic_is_path<Traits, IT>::matches_element_part(std::string_view const& sv) noexcept
 {
     if (at_end()) return false;
     auto& pe = path_elements[element];
@@ -103,8 +103,8 @@ bool basic_is_path<Traits>::matches_element_part(std::string_view const& sv) noe
     return false;
 }
 
-template <typename Traits>
-bool basic_is_path<Traits>::element_complete() noexcept
+template <typename Traits, typename IT>
+bool basic_is_path<Traits, IT>::element_complete() noexcept
 {
     if (at_end()) return false;
     auto& pe = path_elements[element];
@@ -120,10 +120,10 @@ bool basic_is_path<Traits>::element_complete() noexcept
     return true;
 }
 
-template <typename Traits>
-void basic_is_path<Traits>::setup_sm()
+template <typename Traits, typename IT>
+void basic_is_path<Traits, IT>::setup_sm()
 {
-    using self_t                   = basic_is_path<Traits>;
+    using self_t                   = basic_is_path<Traits, IT>;
     auto match_begin               = [](self_t& self) { return self.matches_element_begin(self.cur.as_string_view()); };
     auto match_part                = [](self_t& self) { return self.matches_element_part(self.cur.as_string_view()); };
     auto match_end                 = [](self_t& self) { return self.element_complete(); };
@@ -152,7 +152,7 @@ void basic_is_path<Traits>::setup_sm()
     };
 
     namespace a  = async_json;
-    auto path_sm = a::create_saj_state_machine<self_t>(           //
+    auto path_sm = a::create_saj_state_machine<self_t, IT>(       //
         hsm::initial[last_element] = exp_value,                   //
         a::o_start                 = in_path,                     //
         expect_object(                                            //

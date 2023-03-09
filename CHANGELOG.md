@@ -1,6 +1,18 @@
 
 # Changelog
 
+## Version 0.3.0 9th of March 2023
+
+**Feature**: Bump to HSM 0.3.3 
+- This allows async_json to benefit from the new hsm backend
+
+**Feature**: Fast parser mode
+- Based on the new backend a fast parser mode is added - it can be used to trade ROM for performance:
+- Early tests shows that the new mode is twice as fast with gcc-12
+- The space efficient mode is still the default
+- The feature is enabled in basic_path, basic_json_parser and on_array_element via a tag type: `unrolled_tag` vs `table_tag`
+- Use the 'fast' variants of extractor, path, on_array_element.
+
 ## Version 0.2.0 - 2nd March 2023
 
 **Feature**: build system

@@ -68,7 +68,7 @@ constexpr auto assign_numeric(T& ref, std::enable_if_t<!is_container<T>::value>*
         {
             case saj_variant_value::float_number: ref = ev.as_float_number(); break;
             case saj_variant_value::number: ref = ev.as_number(); break;
-            case saj_variant_value::boolean: ref =ev.as_bool(); break;
+            case saj_variant_value::boolean: ref = ev.as_bool(); break;
             // case saj_variant_value::string: number_from_sv_t::try_parse(ev.as_string_view(), ref); break;
             default: break;
         }
@@ -141,11 +141,10 @@ constexpr auto assign_string(std::variant<Ts...>& ref)
     return [&ref](auto const& ev)
     {
         if (ev.event == saj_event::string_value_start) ref = std::string(ev.as_string_view().begin(), ev.as_string_view().end());
-        if (ev.event == saj_event::string_value_cont) std::get<std::string>(ref).append(ev.as_string_view().begin(), ev.as_string_view().end());
+        if (ev.event == saj_event::string_value_cont)
+            std::get<std::string>(ref).append(ev.as_string_view().begin(), ev.as_string_view().end());
     };
 }
-
-
 
 template <typename T>
 constexpr auto assign_string(T& ref, std::enable_if_t<is_container<T>::value>* = nullptr)
@@ -188,11 +187,11 @@ constexpr auto assign_name(T& ref)
     };
 }
 
-template <typename A, typename Traits>
+template <typename A, typename Traits, typename IT = table_tag>
 struct basic_path
 {
-    basic_is_path<Traits> is_path;
-    A                     fun;
+    basic_is_path<Traits, IT> is_path;
+    A                         fun;
     template <typename... Ts>
     basic_path(A&& a, Ts&&... ts) : fun(a), is_path({static_cast<detail::path_element>(ts)...})
     {
@@ -209,7 +208,14 @@ constexpr auto path(A&& a, Ts&&... ts) noexcept
     return basic_path<A, default_traits>(std::forward<A>(a), std::forward<Ts>(ts)...);
 }
 
-using on_array_element = basic_on_array_element<default_traits>;
+template <typename A, typename... Ts>
+constexpr auto fast_path(A&& a, Ts&&... ts) noexcept
+{
+    return basic_path<A, default_traits, unrolled_tag>(std::forward<A>(a), std::forward<Ts>(ts)...);
+}
+
+using on_array_element      = basic_on_array_element<default_traits>;
+using fast_on_array_element = basic_on_array_element<default_traits, unrolled_tag>;
 
 template <typename EH, typename... Ts>
 constexpr auto make_extractor(EH&& eh, Ts&&... ts) noexcept
@@ -217,10 +223,24 @@ constexpr auto make_extractor(EH&& eh, Ts&&... ts) noexcept
     return basic_json_parser<>(detail::extractor<default_traits, EH, Ts...>(std::forward<EH>(eh), std::forward<Ts>(ts)...));
 }
 
+template <typename EH, typename... Ts>
+constexpr auto make_fast_extractor(EH&& eh, Ts&&... ts) noexcept
+{
+    return basic_json_parser<std::function<void(async_json::saj_event_value<default_traits> const&)>, default_traits, unrolled_tag>(
+        detail::extractor<default_traits, EH, Ts...>(std::forward<EH>(eh), std::forward<Ts>(ts)...));
+}
+
 template <typename OtherTraits, typename EH, typename... Ts>
 constexpr auto make_extractor(EH&& eh, Ts&&... ts) noexcept
 {
     return basic_json_parser<std::function<void(async_json::saj_event_value<OtherTraits> const&)>, OtherTraits>(
+        detail::extractor<OtherTraits, EH, Ts...>(std::forward<EH>(eh), std::forward<Ts>(ts)...));
+}
+
+template <typename OtherTraits, typename EH, typename... Ts>
+constexpr auto make_fast_extractor(EH&& eh, Ts&&... ts) noexcept
+{
+    return basic_json_parser<std::function<void(async_json::saj_event_value<OtherTraits> const&)>, OtherTraits, unrolled_tag>(
         detail::extractor<OtherTraits, EH, Ts...>(std::forward<EH>(eh), std::forward<Ts>(ts)...));
 }
 

@@ -6,6 +6,7 @@
 
 #ifndef ASYNC_JSON_DETAIL_BASIC_JSON_PARSER_IPP_INCLUDED
 #define ASYNC_JSON_DETAIL_BASIC_JSON_PARSER_IPP_INCLUDED
+// #define ASYNC_JSON_PARSER_DEBUG
 namespace async_json
 {
 namespace detail
@@ -71,8 +72,8 @@ constexpr auto error_action()
 }
 }  // namespace detail
 
-template <typename Handler, typename Traits>
-auto basic_json_parser<Handler, Traits>::get_fraction_we() -> float_t
+template <typename Handler, typename Traits, typename IT>
+auto basic_json_parser<Handler, Traits, IT>::get_fraction_we() -> float_t
 {
     float_t ret = get_fraction() * static_cast<float_t>(std::pow(10, exp_sign * static_cast<integer_t>(exp_number)));
     exp_number  = 0;
@@ -80,16 +81,16 @@ auto basic_json_parser<Handler, Traits>::get_fraction_we() -> float_t
     return ret;
 }
 
-template <typename Handler, typename Traits>
-auto basic_json_parser<Handler, Traits>::get_number() -> integer_t
+template <typename Handler, typename Traits, typename IT>
+auto basic_json_parser<Handler, Traits, IT>::get_number() -> integer_t
 {
     integer_t ret = num_sign * static_cast<integer_t>(int_number);
     int_number    = 0;
     num_sign      = 1;
     return ret;
 }
-template <typename Handler, typename Traits>
-auto basic_json_parser<Handler, Traits>::get_fraction() -> float_t
+template <typename Handler, typename Traits, typename IT>
+auto basic_json_parser<Handler, Traits, IT>::get_fraction() -> float_t
 {
     float_t ret =
         num_sign * (static_cast<integer_t>(int_number) + static_cast<float_t>(fraction) / static_cast<float_t>(std::pow(10, frac_digits)));
@@ -99,8 +100,8 @@ auto basic_json_parser<Handler, Traits>::get_fraction() -> float_t
     frac_digits = 0;
     return ret;
 }
-template <typename Handler, typename Traits>
-auto basic_json_parser<Handler, Traits>::setup_sm() -> void
+template <typename Handler, typename Traits, typename IT>
+auto basic_json_parser<Handler, Traits, IT>::setup_sm() -> void
 {
     using namespace hsm::literals;
     auto kw_consume = [](self_t& self)
@@ -217,8 +218,13 @@ auto basic_json_parser<Handler, Traits>::setup_sm() -> void
     auto is_empty = [](self_t& self) { return self.parsed_view.empty(); };
 
     using namespace async_json::detail;
-    auto sm = hsm::create_state_machine<self_t>(  //
-        ch,                                       // catch all event
+    auto select_sm = []<typename... Ts>(Ts&&... p) noexcept
+    {
+        if constexpr (std::is_same_v<IT, table_tag>) { return hsm::create_state_machine<self_t>(std::forward<Ts>(p)...); }
+        else { return hsm::create_unrolled_sm<self_t>(std::forward<Ts>(p)...); }
+    };
+    auto sm = select_sm(  //
+        ch,               // catch all event
         done,
         error,                                      //
         hsm::initial = json_state,                  //
@@ -442,8 +448,7 @@ auto basic_json_parser<Handler, Traits>::setup_sm() -> void
             self.cur = elem;
 #ifdef ASYNC_JSON_PARSER_DEBUG
             std::cout << &self << "Parse: '" << self.cur << "' " << to_state_name(static_cast<int>(sm.current_state_id())) << " ";
-            for( auto const & entry : self.state_stack)
-                std::cout << int(entry) << " ";
+            for (auto const& entry : self.state_stack) std::cout << int(entry) << " ";
             std::cout << "\n";
 #endif
             switch_char(self.cur, self);
@@ -456,20 +461,20 @@ auto basic_json_parser<Handler, Traits>::setup_sm() -> void
     };
 }
 
-template <typename Handler, typename Traits>
-basic_json_parser<Handler, Traits>::basic_json_parser(Handler&& handler) : cbs(std::move(handler))
+template <typename Handler, typename Traits, typename IT>
+basic_json_parser<Handler, Traits, IT>::basic_json_parser(Handler&& handler) : cbs(std::move(handler))
 {
     setup_sm();
 }
 
-template <typename Handler, typename Traits>
-basic_json_parser<Handler, Traits>::basic_json_parser()
+template <typename Handler, typename Traits, typename IT>
+basic_json_parser<Handler, Traits, IT>::basic_json_parser()
 {
     setup_sm();
 }
 
-template <typename Handler, typename Traits>
-auto basic_json_parser<Handler, Traits>::reset() -> void
+template <typename Handler, typename Traits, typename IT>
+auto basic_json_parser<Handler, Traits, IT>::reset() -> void
 {
     exp_sign    = 1;
     frac_digits = 0;
