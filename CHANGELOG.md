@@ -1,6 +1,12 @@
 
 # Changelog
 
+## Version 0.3.1 27th of March 2023
+
+**Feature**: Bump to HSM 0.3.5
+- FTBFS fix in unrolled state machine
+- warnings fixed
+
 ## Version 0.3.0 9th of March 2023
 
 **Feature**: Bump to HSM 0.3.3 
