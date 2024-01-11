@@ -1,5 +1,5 @@
 /* ==========================================================================
- Copyright (c) 2019 Andreas Pokorny
+ Copyright (c) 2019-2024 Andreas Pokorny
  Distributed under the Boost Software License, Version 1.0. (See accompanying
  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 ========================================================================== */
@@ -7,6 +7,7 @@
 #ifndef ASYNC_JSON_STRING_CONVERSION_HPP_INCLUDED
 #define ASYNC_JSON_STRING_CONVERSION_HPP_INCLUDED
 #include <string>
+#include <array>
 namespace async_json
 {
 namespace detail
@@ -29,21 +30,19 @@ inline std::string& json_to_utf8(std::string& str)
         uhex4,
         hex_done
     };
-    escape_state       es{none};
-    unsigned int const factors[4]        = {12u, 8u, 4u, 0u};
-    int                codepoint         = 0;
-    auto*              factor            = factors;
-    auto               consume_codepoint = [&str, &factor, &es](int& cp, size_t i) -> bool {
+    escape_state                es{none};
+    std::array<unsigned int, 4> factors{{12u, 8u, 4u, 0u}};
+    int                         codepoint         = 0;
+    std::size_t                 multiplier        = 0;
+    auto                        consume_codepoint = [&str, &multiplier, &factors, &es](int& cp, size_t i) -> bool
+    {
         if (detail::is_hex(str[i]))
         {
-            cp += static_cast<int>(detail::from_hex(str[i]) << *factor++);
+            cp += static_cast<int>(detail::from_hex(str[i]) << factors.at(multiplier++));
             es = static_cast<decltype(es)>(static_cast<int>(es) + 1);
             return true;
         }
-        else
-        {
-            return false;
-        }
+        else { return false; }
     };
     for (size_t i = 0; i != str.size(); ++i)
     {
@@ -65,16 +64,15 @@ inline std::string& json_to_utf8(std::string& str)
                     case '"': rep = "\""; break;
                     case 'u':
                         if (str.size() - i < 4) return str;  // with error
-                        es        = uhex1;
-                        factor    = factors;
-                        codepoint = 0;
+                        es         = uhex1;
+                        multiplier = 0;
+                        codepoint  = 0;
                         continue;
                     default: return str;  // with error;
                 }
                 if (rep)
                 {
                     str.replace(--i, 2, rep);
-                    --i;
                     es = none;
                 }
                 break;
@@ -93,7 +91,7 @@ inline std::string& json_to_utf8(std::string& str)
                         chars_to_replace += 6;
                         int cp2 = 0;
                         es      = uhex1;
-                        factor  = factors;
+                        multiplier = 0;
                         if (i + 6 < str.size() && str[i + 1] == '\\' && str[i + 2] == 'u' && consume_codepoint(cp2, i + 3) &&
                             consume_codepoint(cp2, i + 4) && consume_codepoint(cp2, i + 5) && consume_codepoint(cp2, i + 6))
                         {
@@ -118,19 +116,19 @@ inline std::string& json_to_utf8(std::string& str)
                     }
                     else if (0xDC00 <= codepoint && codepoint <= 0xDFFF)
                         return str;  // error
-                    char array[5]        = {0, 0, 0, 0, 0};
+                    std::array<char,5> array{{0, 0, 0, 0, 0}};
                     auto replacement_pos = i - 5;
                     if (codepoint < 0x80)
                     {
                         array[0] = static_cast<char>(codepoint);
-                        str.replace(replacement_pos, chars_to_replace, array);
+                        str.replace(replacement_pos, chars_to_replace, array.data());
                         i -= 6;
                     }
                     else if (codepoint <= 0x7FF)
                     {
                         array[0] = static_cast<char>(0xC0u | (static_cast<unsigned int>(codepoint) >> 6u));
                         array[1] = static_cast<char>(0x80u | (static_cast<unsigned int>(codepoint) & 0x3Fu));
-                        str.replace(replacement_pos, chars_to_replace, array);
+                        str.replace(replacement_pos, chars_to_replace, array.data());
                         i -= 5;
                     }
                     else if (codepoint <= 0xFFFF)
@@ -139,7 +137,7 @@ inline std::string& json_to_utf8(std::string& str)
                         array[0] = static_cast<char>(0xE0u | (static_cast<unsigned int>(codepoint) >> 12u));
                         array[1] = static_cast<char>(0x80u | ((static_cast<unsigned int>(codepoint) >> 6u) & 0x3Fu));
                         array[2] = static_cast<char>(0x80u | (static_cast<unsigned int>(codepoint) & 0x3Fu));
-                        str.replace(replacement_pos, chars_to_replace, array);
+                        str.replace(replacement_pos, chars_to_replace, array.data());
                         i -= 4;
                     }
                     else
@@ -149,15 +147,14 @@ inline std::string& json_to_utf8(std::string& str)
                         array[1] = static_cast<char>(0x80u | ((static_cast<unsigned int>(codepoint) >> 12u) & 0x3Fu));
                         array[2] = static_cast<char>(0x80u | ((static_cast<unsigned int>(codepoint) >> 6u) & 0x3Fu));
                         array[3] = static_cast<char>(0x80u | (static_cast<unsigned int>(codepoint) & 0x3Fu));
-                        str.replace(replacement_pos, chars_to_replace, array);
+                        str.replace(replacement_pos, chars_to_replace, array.data());
                         i -= 3;
                     }
-                    es        = none;
+                    es = none;
                 }
                 break;
             case hex_done:
-            default:
-                break;
+            default: break;
         }
     }
     return str;

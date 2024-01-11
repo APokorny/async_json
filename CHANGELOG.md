@@ -1,6 +1,12 @@
 
 # Changelog
 
+## Version 0.3.2 11th of Junary 2024 
+
+**Bugfix**:
+- fix escape sequence replacement
+- minor improvements to fix clangs new -Wunsafe-buffer warnings
+
 ## Version 0.3.1 27th of March 2023
 
 **Feature**: Bump to HSM 0.3.5
