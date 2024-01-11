@@ -5,10 +5,13 @@ A library for parsing json in parts, avoiding the need to keep the complete docu
 ## ATTENTION
 
 In the current state \" escape sequences are supported but not comfortable replaced like in other parsers.
-That means that the user has to expect escape sequencesin string views of the original content.
+That means that the user has to expect escape sequences in string views of the original content.
+The conversion code provided in `async_json/string_converter.hpp` can be used to replace
+the escape sequences.
 
 ## TODO:
-* provide utilities to optionally convert \u unicode escape symbols and similar
+* improve the event handler
+* provide nicer utilities to optionally convert \u unicode escape symbols and similar
 * optimize binary size and performance by improving hsm
 * find a better way to parse floats/doubles.
 * printing - or rather transformation support
