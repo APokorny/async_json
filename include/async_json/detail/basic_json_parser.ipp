@@ -223,7 +223,7 @@ auto basic_json_parser<Handler, Traits, IT>::setup_sm() -> void
         if constexpr (std::is_same_v<IT, table_tag>) { return hsm::create_state_machine<self_t>(std::forward<Ts>(p)...); }
         else { return hsm::create_unrolled_sm<self_t>(std::forward<Ts>(p)...); }
     };
-    auto sm = select_sm(  //
+    auto state_machine = select_sm(  //
         ch,               // catch all event
         done,
         error,                                      //
@@ -364,8 +364,8 @@ auto basic_json_parser<Handler, Traits, IT>::setup_sm() -> void
                 hsm::initial[array_on_stack] / pop_array                                           = array_object),
             hsm::any / detail::error_action<comma_expected, self_t>() = error  //
             ));
-    sm.start(*this);
-    process_events = [sm = std::move(sm)](sv_t const& bytes, int ctrl, self_t& self) mutable
+    state_machine.start(*this);
+    process_events = [sm = std::move(state_machine)](sv_t const& bytes, int ctrl, self_t& self) mutable
     {
         if (ctrl < 0) sm.start(self);
         self.current_input_buffer = bytes;
