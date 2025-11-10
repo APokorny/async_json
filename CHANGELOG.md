@@ -1,6 +1,12 @@
 
 # Changelog
 
+
+## Version 0.3.3 10th of November 2025
+
+**Feature**: Support for CMake 4
+- avoids deprecation error
+
 ## Version 0.3.2 11th of Junary 2024 
 
 **Bugfix**:
