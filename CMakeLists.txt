@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.14)
 project(async_json VERSION 0.3.3 LANGUAGES CXX)
 
 include(cmake/get_cpm.cmake)
-set(HSM_VERSION 0.3.6)
+set(HSM_VERSION 0.3.7)
 CPMAddPackage("gh:APokorny/hsm@${HSM_VERSION}")
 CPMAddPackage("gh:TheLartians/PackageProject.cmake@1.9.0")
 

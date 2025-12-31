@@ -7,6 +7,7 @@
 #ifndef ASYNC_JSON_SAJ_EVENT_VALUE_H
 #define ASYNC_JSON_SAJ_EVENT_VALUE_H
 
+#include <cstdint>
 #include <type_traits>
 #include <algorithm>
 #include <variant>
