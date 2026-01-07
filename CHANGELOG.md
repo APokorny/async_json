@@ -1,6 +1,9 @@
 
 # Changelog
 
+## Version 0.3.4 7th of January 2026
+
+**Fix**: Support for GCC-15
 
 ## Version 0.3.3 10th of November 2025
 

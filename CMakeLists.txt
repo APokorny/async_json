@@ -2,7 +2,7 @@ cmake_policy(SET CMP0057 NEW)
 cmake_policy(SET CMP0048 NEW)
 cmake_policy(SET CMP0077 NEW)
 cmake_minimum_required(VERSION 3.14)
-project(async_json VERSION 0.3.3 LANGUAGES CXX)
+project(async_json VERSION 0.3.4 LANGUAGES CXX)
 
 include(cmake/get_cpm.cmake)
 set(HSM_VERSION 0.3.7)
