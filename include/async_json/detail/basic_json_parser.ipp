@@ -127,7 +127,7 @@ auto basic_json_parser<Handler, Traits, IT>::setup_sm() -> void
     auto negate_num         = [](self_t& self) { self.num_sign = -1; };
     auto add_digit_num      = [](self_t& self) { self.int_number = self.int_number * 10 + (self.cur - '0'); };
     auto add_digit_exp      = [](self_t& self) { self.exp_number = self.exp_number * 10 + (self.cur - '0'); };
-    auto add_digit_fraction = [](self_t& self) { ++self.frac_digits, self.fraction = self.fraction * 10 + (self.cur - '0'); };
+    auto add_digit_fraction = [](self_t& self) { ++self.frac_digits; self.fraction = self.fraction * 10 + (self.cur - '0'); };
 
     auto emit_number       = [](self_t& self) { self.cbs(event_value(saj_event::integer_value, self.get_number())); };
     auto emit_fraction     = [](self_t& self) { self.cbs(event_value(saj_event::float_value, self.get_fraction())); };
